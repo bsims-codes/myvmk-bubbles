@@ -9,18 +9,43 @@
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
-const BUBBLE_RADIUS = 16;
-const ROW_HEIGHT = BUBBLE_RADIUS * Math.sqrt(3); // ~27.7px
-const GRID_COLS = 24;
+
+// Level 1 grid settings
+const LEVEL1_BUBBLE_RADIUS = 16;
+const LEVEL1_GRID_COLS = 24;
+
+// Level 2 grid settings (fewer, larger bubbles)
+const LEVEL2_BUBBLE_RADIUS = 38;
+const LEVEL2_GRID_COLS = 10;
+
+// Shared grid settings
 const GRID_ROWS = 16; // 14 visible + 2 buffer rows
 const VISIBLE_ROWS = 14;
+
+// Dynamic getters for level-dependent values
+function getBubbleRadius() {
+    return currentLevel === 2 ? LEVEL2_BUBBLE_RADIUS : LEVEL1_BUBBLE_RADIUS;
+}
+
+function getRowHeight() {
+    return getBubbleRadius() * Math.sqrt(3);
+}
+
+function getGridCols() {
+    return currentLevel === 2 ? LEVEL2_GRID_COLS : LEVEL1_GRID_COLS;
+}
+
+function getLoseRow() {
+    return currentLevel === 2 ? LEVEL2_LOSE_ROW : LEVEL1_LOSE_ROW;
+}
 const SHOOTER_X = 400;
 const SHOOTER_Y = 560;
 const PROJECTILE_SPEED = 900; // pixels per second
 const MIN_AIM_ANGLE = 10 * (Math.PI / 180);  // 10 degrees in radians
 const MAX_AIM_ANGLE = 170 * (Math.PI / 180); // 170 degrees in radians
 const LOSE_LINE_Y = 540;
-const LOSE_ROW = 13;
+const LEVEL1_LOSE_ROW = 13;
+const LEVEL2_LOSE_ROW = 7;  // Fewer rows fit with larger bubbles
 const SHOTS_BEFORE_NEW_ROW = 5;
 const CLUSTER_MIN_SIZE = 3;
 
@@ -178,8 +203,10 @@ let backgroundIndex = parseInt(localStorage.getItem('vmkBubbleBackgroundIndex') 
  * Uses odd-r offset: odd rows are shifted right by radius
  */
 function gridToWorld(row, col) {
-    const x = col * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS + (row % 2 === 1 ? BUBBLE_RADIUS : 0);
-    const y = row * ROW_HEIGHT + BUBBLE_RADIUS;
+    const radius = getBubbleRadius();
+    const rowHeight = getRowHeight();
+    const x = col * radius * 2 + radius + (row % 2 === 1 ? radius : 0);
+    const y = row * rowHeight + radius;
     return { x, y };
 }
 
@@ -187,14 +214,18 @@ function gridToWorld(row, col) {
  * Convert world (canvas) position to nearest grid cell
  */
 function worldToGrid(x, y) {
+    const radius = getBubbleRadius();
+    const rowHeight = getRowHeight();
+    const gridCols = getGridCols();
+
     // Approximate row
-    let row = Math.round((y - BUBBLE_RADIUS) / ROW_HEIGHT);
+    let row = Math.round((y - radius) / rowHeight);
     row = Math.max(0, Math.min(row, GRID_ROWS - 1));
 
     // Adjust x for odd row offset
-    const offsetX = row % 2 === 1 ? BUBBLE_RADIUS : 0;
-    let col = Math.round((x - BUBBLE_RADIUS - offsetX) / (BUBBLE_RADIUS * 2));
-    col = Math.max(0, Math.min(col, GRID_COLS - 1));
+    const offsetX = row % 2 === 1 ? radius : 0;
+    let col = Math.round((x - radius - offsetX) / (radius * 2));
+    col = Math.max(0, Math.min(col, gridCols - 1));
 
     return { row, col };
 }
@@ -204,6 +235,7 @@ function worldToGrid(x, y) {
  */
 function getNeighbors(row, col) {
     const neighbors = [];
+    const gridCols = getGridCols();
 
     // Neighbor offsets differ based on whether row is even or odd
     const isOddRow = row % 2 === 1;
@@ -224,7 +256,7 @@ function getNeighbors(row, col) {
         const newCol = col + (isOddRow ? oddColOffset : evenColOffset);
 
         // Check bounds
-        if (newRow >= 0 && newRow < GRID_ROWS && newCol >= 0 && newCol < GRID_COLS) {
+        if (newRow >= 0 && newRow < GRID_ROWS && newCol >= 0 && newCol < gridCols) {
             neighbors.push({ row: newRow, col: newCol });
         }
     }
@@ -236,7 +268,8 @@ function getNeighbors(row, col) {
  * Check if a grid cell is occupied
  */
 function isOccupied(row, col) {
-    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) {
+    const gridCols = getGridCols();
+    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= gridCols) {
         return false;
     }
     return gameState.grid[row][col] !== null;
@@ -246,7 +279,8 @@ function isOccupied(row, col) {
  * Check if a grid cell is valid and empty
  */
 function isValidEmpty(row, col) {
-    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) {
+    const gridCols = getGridCols();
+    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= gridCols) {
         return false;
     }
     return gameState.grid[row][col] === null;
@@ -300,9 +334,10 @@ function findCluster(row, col, color) {
 function findConnectedToCeiling() {
     const connected = new Set();
     const queue = [];
+    const gridCols = getGridCols();
 
     // Start from all occupied cells in row 0
-    for (let col = 0; col < GRID_COLS; col++) {
+    for (let col = 0; col < gridCols; col++) {
         if (isOccupied(0, col)) {
             queue.push({ row: 0, col });
             connected.add(`0,${col}`);
@@ -331,10 +366,11 @@ function findConnectedToCeiling() {
  */
 function removeFloatingBubbles() {
     const connectedToCeiling = findConnectedToCeiling();
+    const gridCols = getGridCols();
     let removedCount = 0;
 
     for (let row = 0; row < GRID_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             if (isOccupied(row, col)) {
                 const key = `${row},${col}`;
                 if (!connectedToCeiling.has(key)) {
@@ -357,10 +393,12 @@ function removeFloatingBubbles() {
  * Returns the collided bubble's grid position or null
  */
 function checkBubbleCollision(px, py) {
-    const collisionDist = BUBBLE_RADIUS * 2;
+    const radius = getBubbleRadius();
+    const collisionDist = radius * 2;
+    const gridCols = getGridCols();
 
     for (let row = 0; row < GRID_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             if (isOccupied(row, col)) {
                 const pos = gridToWorld(row, col);
                 const dx = px - pos.x;
@@ -417,6 +455,8 @@ function snapProjectile(px, py, hitRow, hitCol) {
  * Calculate snap target for debug display
  */
 function calculateSnapTarget(px, py) {
+    const radius = getBubbleRadius();
+
     // Check for collision
     const hitCell = checkBubbleCollision(px, py);
 
@@ -425,8 +465,8 @@ function calculateSnapTarget(px, py) {
     }
 
     // Check ceiling
-    if (py <= BUBBLE_RADIUS) {
-        return worldToGrid(px, BUBBLE_RADIUS);
+    if (py <= radius) {
+        return worldToGrid(px, radius);
     }
 
     return null;
@@ -461,17 +501,18 @@ function initGame() {
     }
 
     // Initialize empty grid
+    const gridCols = getGridCols();
     gameState.grid = [];
     for (let row = 0; row < GRID_ROWS; row++) {
         gameState.grid[row] = [];
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             gameState.grid[row][col] = null;
         }
     }
 
     // Fill initial rows with bubbles
     for (let row = 0; row < INITIAL_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             gameState.grid[row][col] = rng.nextInt(0, NUM_COLORS - 1);
         }
     }
@@ -520,7 +561,8 @@ function fireBubble() {
  * Place a bubble on the grid and process matches
  */
 function placeBubble(row, col, color) {
-    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) {
+    const gridCols = getGridCols();
+    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= gridCols) {
         return;
     }
 
@@ -573,15 +615,17 @@ function placeBubble(row, col, color) {
  * Add a new row at the top and shift everything down
  */
 function addNewRow() {
+    const gridCols = getGridCols();
+
     // Shift all rows down
     for (let row = GRID_ROWS - 1; row > 0; row--) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             gameState.grid[row][col] = gameState.grid[row - 1][col];
         }
     }
 
     // Generate new row at top
-    for (let col = 0; col < GRID_COLS; col++) {
+    for (let col = 0; col < gridCols; col++) {
         gameState.grid[0][col] = rng.nextInt(0, NUM_COLORS - 1);
     }
 }
@@ -590,8 +634,9 @@ function addNewRow() {
  * Check if game is won (all bubbles cleared)
  */
 function checkWin() {
+    const gridCols = getGridCols();
     for (let row = 0; row < GRID_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             if (isOccupied(row, col)) {
                 return; // Still bubbles remaining
             }
@@ -608,9 +653,11 @@ function checkGameOver() {
     checkWin();
     if (gameState.gameWon) return;
 
+    const gridCols = getGridCols();
+
     // Check if any bubble is at or below the lose line
-    for (let col = 0; col < GRID_COLS; col++) {
-        if (isOccupied(LOSE_ROW, col)) {
+    for (let col = 0; col < gridCols; col++) {
+        if (isOccupied(getLoseRow(), col)) {
             gameState.gameOver = true;
             return;
         }
@@ -618,7 +665,7 @@ function checkGameOver() {
 
     // Also check by y position
     for (let row = 0; row < GRID_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             if (isOccupied(row, col)) {
                 const pos = gridToWorld(row, col);
                 if (pos.y >= LOSE_LINE_Y) {
@@ -637,17 +684,19 @@ function updateProjectile(dt) {
     const proj = gameState.projectile;
     if (!proj || !proj.active) return;
 
+    const radius = getBubbleRadius();
+
     // Update position
     proj.x += proj.vx * dt;
     proj.y += proj.vy * dt;
 
     // Wall bouncing
-    if (proj.x <= BUBBLE_RADIUS) {
-        proj.x = BUBBLE_RADIUS;
+    if (proj.x <= radius) {
+        proj.x = radius;
         proj.vx = -proj.vx;
         proj.bounceCount++;
-    } else if (proj.x >= CANVAS_WIDTH - BUBBLE_RADIUS) {
-        proj.x = CANVAS_WIDTH - BUBBLE_RADIUS;
+    } else if (proj.x >= CANVAS_WIDTH - radius) {
+        proj.x = CANVAS_WIDTH - radius;
         proj.vx = -proj.vx;
         proj.bounceCount++;
     }
@@ -666,8 +715,8 @@ function updateProjectile(dt) {
     }
 
     // Check ceiling collision
-    if (proj.y <= BUBBLE_RADIUS) {
-        proj.y = BUBBLE_RADIUS;
+    if (proj.y <= radius) {
+        proj.y = radius;
         const gridPos = worldToGrid(proj.x, proj.y);
         if (isValidEmpty(gridPos.row, gridPos.col)) {
             placeBubble(gridPos.row, gridPos.col, proj.color);
@@ -685,18 +734,20 @@ function updateProjectile(dt) {
  * Draw a bubble at the specified position
  */
 function drawBubble(x, y, colorId, highlight = false) {
+    const radius = getBubbleRadius();
+
     // Level 2: Draw custom curse images
     if (currentLevel === 2 && curseImagesLoaded && CURSE_IMAGES[colorId]) {
         const img = CURSE_IMAGES[colorId];
         if (img.complete && img.naturalWidth > 0) {
             // Draw the image centered at x, y
-            const size = BUBBLE_RADIUS * 2;
-            ctx.drawImage(img, x - BUBBLE_RADIUS, y - BUBBLE_RADIUS, size, size);
+            const size = radius * 2;
+            ctx.drawImage(img, x - radius, y - radius, size, size);
 
             // Add highlight border if needed
             if (highlight) {
                 ctx.beginPath();
-                ctx.arc(x, y, BUBBLE_RADIUS, 0, Math.PI * 2);
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.strokeStyle = '#fff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -710,19 +761,19 @@ function drawBubble(x, y, colorId, highlight = false) {
 
     // Main bubble
     ctx.beginPath();
-    ctx.arc(x, y, BUBBLE_RADIUS - 1, 0, Math.PI * 2);
+    ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
 
     // Highlight/shine effect
     ctx.beginPath();
-    ctx.arc(x - 4, y - 4, BUBBLE_RADIUS / 3, 0, Math.PI * 2);
+    ctx.arc(x - 4, y - 4, radius / 3, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.fill();
 
     // Border
     ctx.beginPath();
-    ctx.arc(x, y, BUBBLE_RADIUS - 1, 0, Math.PI * 2);
+    ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
     ctx.strokeStyle = highlight ? '#fff' : 'rgba(0, 0, 0, 0.3)';
     ctx.lineWidth = highlight ? 2 : 1;
     ctx.stroke();
@@ -732,8 +783,9 @@ function drawBubble(x, y, colorId, highlight = false) {
  * Draw the bubble grid
  */
 function drawGrid() {
+    const gridCols = getGridCols();
     for (let row = 0; row < GRID_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             const colorId = gameState.grid[row][col];
             if (colorId !== null) {
                 const pos = gridToWorld(row, col);
@@ -833,7 +885,7 @@ function drawUI() {
     drawBubble(770, 575, gameState.nextBubble);
 
     // Danger zone indicator at row 13
-    const dangerLineY = LOSE_ROW * ROW_HEIGHT + BUBBLE_RADIUS;
+    const dangerLineY = getLoseRow() * getRowHeight() + getBubbleRadius();
 
     // Draw subtle danger zone gradient below the line
     const gradient = ctx.createLinearGradient(0, dangerLineY, 0, dangerLineY + 60);
@@ -852,11 +904,12 @@ function drawUI() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // "DANGER" label
+    // Zone label (level-dependent)
     ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText('DANGER ZONE', 10, dangerLineY + 15);
+    const zoneLabel = currentLevel === 2 ? 'CURSED ZONE' : 'DANGER ZONE';
+    ctx.fillText(zoneLabel, 10, dangerLineY + 15);
 }
 
 /**
@@ -916,12 +969,15 @@ function drawWin() {
 function drawDebug() {
     if (!gameState.debugMode) return;
 
+    const radius = getBubbleRadius();
+    const gridCols = getGridCols();
+
     // Draw grid cell centers and indices
     ctx.font = '8px Arial';
     ctx.textAlign = 'center';
 
     for (let row = 0; row < VISIBLE_ROWS; row++) {
-        for (let col = 0; col < GRID_COLS; col++) {
+        for (let col = 0; col < gridCols; col++) {
             const pos = gridToWorld(row, col);
 
             // Cell center dot
@@ -937,7 +993,7 @@ function drawDebug() {
             // Collision radius circle for occupied cells
             if (isOccupied(row, col)) {
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, BUBBLE_RADIUS, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
                 ctx.lineWidth = 1;
                 ctx.stroke();
@@ -953,7 +1009,7 @@ function drawDebug() {
         if (target) {
             const pos = gridToWorld(target.row, target.col);
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, BUBBLE_RADIUS + 3, 0, Math.PI * 2);
+            ctx.arc(pos.x, pos.y, radius + 3, 0, Math.PI * 2);
             ctx.strokeStyle = '#f1c40f';
             ctx.lineWidth = 3;
             ctx.stroke();
