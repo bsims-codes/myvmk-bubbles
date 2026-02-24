@@ -45,7 +45,63 @@ const BACKGROUND_IMAGES = [
     { src: 'hats.png', tile: true },
     { src: 'items.jpg', tile: false }
 ];
-const BACKGROUND_OPACITY = 0.25; // Transparency for background images
+const BACKGROUND_OPACITY = 0.25; // Transparency for background images (Level 1)
+const CURSE_BACKGROUND_OPACITY = 0.6; // Higher opacity for Level 2 curse background
+
+// Level system
+let currentLevel = 1;
+
+// Custom bubble images for Level 2
+const CURSE_IMAGES = [];
+let curseImagesLoaded = false;
+
+// Custom background for Level 2
+let curseBackgroundImage = null;
+let curseBackgroundLoaded = false;
+
+// Spinner image for Level 2 (behind shooter)
+let curseSpinnerImage = null;
+let curseSpinnerLoaded = false;
+const SPINNER_SIZE = 100; // Size of the spinner image
+
+// Preload curse images and background
+function preloadCurseImages() {
+    let loadedCount = 0;
+    for (let i = 1; i <= NUM_COLORS; i++) {
+        const img = new Image();
+        img.src = `curse${i}.png`;
+        img.onload = () => {
+            loadedCount++;
+            if (loadedCount === NUM_COLORS) {
+                curseImagesLoaded = true;
+            }
+        };
+        img.onerror = () => {
+            console.warn(`Failed to load curse${i}.png`);
+        };
+        CURSE_IMAGES.push(img);
+    }
+
+    // Preload curse background
+    curseBackgroundImage = new Image();
+    curseBackgroundImage.src = 'curse-background.png';
+    curseBackgroundImage.onload = () => {
+        curseBackgroundLoaded = true;
+    };
+    curseBackgroundImage.onerror = () => {
+        console.warn('Failed to load curse-background.png');
+    };
+
+    // Preload spinner image
+    curseSpinnerImage = new Image();
+    curseSpinnerImage.src = 'curse6-spinner.png';
+    curseSpinnerImage.onload = () => {
+        curseSpinnerLoaded = true;
+    };
+    curseSpinnerImage.onerror = () => {
+        console.warn('Failed to load curse6-spinner.png');
+    };
+}
 
 // ============================================================================
 // SEEDED RANDOM NUMBER GENERATOR (LCG)
@@ -97,6 +153,7 @@ let gameState = {
     shotsWithoutPop: 0,
     gameOver: false,
     gameWon: false,
+    scoreSubmitted: false,
     debugMode: false,
     mouseX: SHOOTER_X,
     mouseY: SHOOTER_Y - 100,
@@ -386,14 +443,22 @@ function initGame() {
     // Reset RNG with new seed for new game
     rng = new SeededRNG(Date.now());
 
-    // Load next background image (rotates through the list)
-    const bgConfig = BACKGROUND_IMAGES[backgroundIndex];
-    backgroundImage = new Image();
-    currentBackgroundName = bgConfig.src;
-    currentBackgroundTile = bgConfig.tile;
-    backgroundImage.src = bgConfig.src;
-    backgroundIndex = (backgroundIndex + 1) % BACKGROUND_IMAGES.length;
-    localStorage.setItem('vmkBubbleBackgroundIndex', backgroundIndex.toString());
+    // Load background based on current level
+    if (currentLevel === 2 && curseBackgroundLoaded) {
+        // Level 2: Use curse background
+        backgroundImage = curseBackgroundImage;
+        currentBackgroundName = 'curse-background.png';
+        currentBackgroundTile = false;
+    } else {
+        // Level 1: Rotate through normal backgrounds
+        const bgConfig = BACKGROUND_IMAGES[backgroundIndex];
+        backgroundImage = new Image();
+        currentBackgroundName = bgConfig.src;
+        currentBackgroundTile = bgConfig.tile;
+        backgroundImage.src = bgConfig.src;
+        backgroundIndex = (backgroundIndex + 1) % BACKGROUND_IMAGES.length;
+        localStorage.setItem('vmkBubbleBackgroundIndex', backgroundIndex.toString());
+    }
 
     // Initialize empty grid
     gameState.grid = [];
@@ -420,6 +485,7 @@ function initGame() {
     gameState.shotsWithoutPop = 0;
     gameState.gameOver = false;
     gameState.gameWon = false;
+    gameState.scoreSubmitted = false;
     gameState.snapTarget = null;
 }
 
@@ -619,6 +685,27 @@ function updateProjectile(dt) {
  * Draw a bubble at the specified position
  */
 function drawBubble(x, y, colorId, highlight = false) {
+    // Level 2: Draw custom curse images
+    if (currentLevel === 2 && curseImagesLoaded && CURSE_IMAGES[colorId]) {
+        const img = CURSE_IMAGES[colorId];
+        if (img.complete && img.naturalWidth > 0) {
+            // Draw the image centered at x, y
+            const size = BUBBLE_RADIUS * 2;
+            ctx.drawImage(img, x - BUBBLE_RADIUS, y - BUBBLE_RADIUS, size, size);
+
+            // Add highlight border if needed
+            if (highlight) {
+                ctx.beginPath();
+                ctx.arc(x, y, BUBBLE_RADIUS, 0, Math.PI * 2);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            return;
+        }
+    }
+
+    // Level 1 (default): Draw colored circles
     const color = BUBBLE_COLORS[colorId];
 
     // Main bubble
@@ -660,14 +747,16 @@ function drawGrid() {
  * Draw the shooter
  */
 function drawShooter() {
-    // Draw shooter base
-    ctx.beginPath();
-    ctx.arc(SHOOTER_X, SHOOTER_Y, 25, 0, Math.PI * 2);
-    ctx.fillStyle = '#34495e';
-    ctx.fill();
-    ctx.strokeStyle = '#2c3e50';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    // Draw shooter base (hidden in Level 2 to show spinner)
+    if (currentLevel === 1) {
+        ctx.beginPath();
+        ctx.arc(SHOOTER_X, SHOOTER_Y, 25, 0, Math.PI * 2);
+        ctx.fillStyle = '#34495e';
+        ctx.fill();
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
 
     // Draw current bubble in shooter
     drawBubble(SHOOTER_X, SHOOTER_Y, gameState.currentBubble);
@@ -877,7 +966,7 @@ function drawDebug() {
     ctx.textAlign = 'left';
     ctx.fillText(`Debug Mode (D to toggle)`, 20, 20);
     ctx.fillText(`Aim: ${(gameState.aimAngle * 180 / Math.PI).toFixed(1)}°`, 20, 35);
-    ctx.fillText(`Background: ${currentBackgroundName}`, 20, 50);
+    ctx.fillText(`Level: ${currentLevel} | Background: ${currentBackgroundName}`, 20, 50);
 
     if (gameState.projectile) {
         ctx.fillText(`Proj: (${gameState.projectile.x.toFixed(0)}, ${gameState.projectile.y.toFixed(0)})`, 20, 65);
@@ -894,7 +983,7 @@ function render() {
 
     // Draw background image with transparency
     if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-        ctx.globalAlpha = BACKGROUND_OPACITY;
+        ctx.globalAlpha = (currentLevel === 2) ? CURSE_BACKGROUND_OPACITY : BACKGROUND_OPACITY;
 
         if (currentBackgroundTile) {
             // Tile/repeat the image across the canvas
@@ -912,6 +1001,13 @@ function render() {
         }
 
         ctx.globalAlpha = 1.0;
+    }
+
+    // Draw spinner behind shooter (Level 2 only)
+    if (currentLevel === 2 && curseSpinnerLoaded && curseSpinnerImage.complete) {
+        const spinnerX = SHOOTER_X - SPINNER_SIZE / 2;
+        const spinnerY = SHOOTER_Y - SPINNER_SIZE / 2;
+        ctx.drawImage(curseSpinnerImage, spinnerX, spinnerY, SPINNER_SIZE, SPINNER_SIZE);
     }
 
     // Draw game elements
@@ -951,7 +1047,7 @@ function handleMouseMove(e) {
 }
 
 function handleClick(e) {
-    if (!gameState.gameOver) {
+    if (!gameState.gameOver && !gameState.gameWon) {
         fireBubble();
     }
 }
@@ -967,6 +1063,28 @@ function handleKeyDown(e) {
     }
 }
 
+/**
+ * Set the current level and update UI
+ */
+function setLevel(level) {
+    currentLevel = level;
+
+    // Update button states
+    const level1Btn = document.getElementById('level1Btn');
+    const level2Btn = document.getElementById('level2Btn');
+
+    if (level === 1) {
+        level1Btn.classList.add('active');
+        level2Btn.classList.remove('active');
+    } else {
+        level1Btn.classList.remove('active');
+        level2Btn.classList.add('active');
+    }
+
+    // Restart the game with new level
+    initGame();
+}
+
 // ============================================================================
 // GAME LOOP
 // ============================================================================
@@ -980,8 +1098,14 @@ function gameLoop(timestamp) {
     const cappedDt = Math.min(dt, 0.1);
 
     // Update
-    if (!gameState.gameOver) {
+    if (!gameState.gameOver && !gameState.gameWon) {
         updateProjectile(cappedDt);
+    }
+
+    // Check if we need to show name entry modal
+    if ((gameState.gameOver || gameState.gameWon) && !gameState.scoreSubmitted) {
+        gameState.scoreSubmitted = true; // Prevent multiple popups
+        setTimeout(() => showNameEntry(gameState.gameWon), 500); // Slight delay for effect
     }
 
     // Render
@@ -992,14 +1116,121 @@ function gameLoop(timestamp) {
 }
 
 // ============================================================================
+// LEADERBOARD
+// ============================================================================
+
+const LEADERBOARD_KEY = 'vmkBubbleLeaderboard';
+const MAX_LEADERBOARD_ENTRIES = 10;
+
+function loadLeaderboard() {
+    const data = localStorage.getItem(LEADERBOARD_KEY);
+    return data ? JSON.parse(data) : [];
+}
+
+function saveLeaderboard(leaderboard) {
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+}
+
+function addToLeaderboard(name, score) {
+    const leaderboard = loadLeaderboard();
+    leaderboard.push({ name, score, date: Date.now() });
+    // Sort by score descending
+    leaderboard.sort((a, b) => b.score - a.score);
+    // Keep only top entries
+    const trimmed = leaderboard.slice(0, MAX_LEADERBOARD_ENTRIES);
+    saveLeaderboard(trimmed);
+    return trimmed;
+}
+
+function openLeaderboard() {
+    const leaderboard = loadLeaderboard();
+    const list = document.getElementById('leaderboardList');
+
+    if (leaderboard.length === 0) {
+        list.innerHTML = '<li class="no-scores">No scores yet. Be the first!</li>';
+    } else {
+        list.innerHTML = leaderboard.map((entry, index) => `
+            <li>
+                <span class="rank">#${index + 1}</span>
+                <span class="name">${escapeHtml(entry.name)}</span>
+                <span class="score">${entry.score}</span>
+            </li>
+        `).join('');
+    }
+
+    document.getElementById('leaderboardModal').classList.add('active');
+}
+
+function closeLeaderboard() {
+    document.getElementById('leaderboardModal').classList.remove('active');
+}
+
+function showNameEntry(isWin) {
+    document.getElementById('gameEndTitle').textContent = isWin ? 'You Win!' : 'Game Over!';
+    document.getElementById('finalScoreDisplay').textContent = gameState.score;
+    document.getElementById('playerNameInput').value = '';
+    document.getElementById('nameEntryModal').classList.add('active');
+    document.getElementById('playerNameInput').focus();
+}
+
+function closeNameEntry() {
+    document.getElementById('nameEntryModal').classList.remove('active');
+}
+
+function submitScore() {
+    const nameInput = document.getElementById('playerNameInput');
+    const name = nameInput.value.trim() || 'Anonymous';
+    addToLeaderboard(name, gameState.score);
+    closeNameEntry();
+    gameState.scoreSubmitted = true;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
 function init() {
+    // Preload curse images for Level 2
+    preloadCurseImages();
+
     // Set up event listeners
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeyDown);
+
+    // Level toggle buttons
+    document.getElementById('level1Btn').addEventListener('click', () => setLevel(1));
+    document.getElementById('level2Btn').addEventListener('click', () => setLevel(2));
+
+    // Leaderboard button
+    document.getElementById('leaderboardBtn').addEventListener('click', openLeaderboard);
+
+    // Name entry modal buttons
+    document.getElementById('submitScoreBtn').addEventListener('click', submitScore);
+    document.getElementById('skipScoreBtn').addEventListener('click', () => {
+        closeNameEntry();
+        gameState.scoreSubmitted = true;
+    });
+
+    // Allow Enter key to submit score
+    document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            submitScore();
+        }
+    });
+
+    // Close modals when clicking overlay
+    document.getElementById('leaderboardModal').addEventListener('click', (e) => {
+        if (e.target.id === 'leaderboardModal') {
+            closeLeaderboard();
+        }
+    });
 
     // Initialize game state
     initGame();
