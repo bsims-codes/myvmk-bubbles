@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Shooter - Admin Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #ecf0f1;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #f1c40f;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .level-card {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a1a2e 100%);
+            border: 2px solid #4a4a6a;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .level-card h2 {
+            color: #f1c40f;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .level-card h2 .level-num {
+            background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+            color: #1a1a2e;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .setting-row label {
+            width: 150px;
+            font-weight: bold;
+        }
+        .setting-row input[type="range"] {
+            flex: 1;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #4a4a6a;
+            border-radius: 4px;
+            outline: none;
+        }
+        .setting-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #f1c40f;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .setting-row .value {
+            width: 80px;
+            text-align: center;
+            background: #16213e;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #4a4a6a;
+        }
+        .calculated {
+            color: #2ecc71;
+            font-style: italic;
+        }
+        .preview-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            border: 1px solid #4a4a6a;
+        }
+        .preview-box h4 {
+            color: #9b59b6;
+            margin-bottom: 10px;
+        }
+        .preview-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            color: #f1c40f;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .save-btn {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+        }
+        .reset-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        .play-btn {
+            background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+            color: #1a1a2e;
+        }
+        .message {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .message.success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            color: #2ecc71;
+            display: block;
+        }
+        .info-box {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info-box h3 {
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+        .info-box p {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to Game</a>
+        <h1>Admin Settings</h1>
+
+        <div class="info-box">
+            <h3>How it works</h3>
+            <p>Adjust the number of columns for each level. The bubble size and danger zone will automatically calculate to fit the 800px canvas width. Settings are saved to your browser and will persist across sessions.</p>
+        </div>
+
+        <!-- Level 1 -->
+        <div class="level-card">
+            <h2><span class="level-num">1</span> Level 1 - Cursed</h2>
+            <div class="setting-row">
+                <label>Columns:</label>
+                <input type="range" id="level1Cols" min="6" max="20" value="10">
+                <span class="value" id="level1ColsValue">10</span>
+            </div>
+            <div class="preview-box">
+                <h4>Calculated Values</h4>
+                <div class="preview-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="level1Radius">38</div>
+                        <div class="stat-label">Bubble Radius (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level1RowHeight">66</div>
+                        <div class="stat-label">Row Height (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level1LoseRow">7</div>
+                        <div class="stat-label">Cursed Zone Row</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Level 2 -->
+        <div class="level-card">
+            <h2><span class="level-num">2</span> Level 2 - Cursed Alt</h2>
+            <div class="setting-row">
+                <label>Columns:</label>
+                <input type="range" id="level2Cols" min="6" max="24" value="16">
+                <span class="value" id="level2ColsValue">16</span>
+            </div>
+            <div class="preview-box">
+                <h4>Calculated Values</h4>
+                <div class="preview-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="level2Radius">24</div>
+                        <div class="stat-label">Bubble Radius (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level2RowHeight">42</div>
+                        <div class="stat-label">Row Height (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level2LoseRow">12</div>
+                        <div class="stat-label">Cursed Zone Row</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Level 3 -->
+        <div class="level-card">
+            <h2><span class="level-num">3</span> Level 3 - Classic</h2>
+            <div class="setting-row">
+                <label>Columns:</label>
+                <input type="range" id="level3Cols" min="8" max="30" value="24">
+                <span class="value" id="level3ColsValue">24</span>
+            </div>
+            <div class="preview-box">
+                <h4>Calculated Values</h4>
+                <div class="preview-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="level3Radius">16</div>
+                        <div class="stat-label">Bubble Radius (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level3RowHeight">28</div>
+                        <div class="stat-label">Row Height (px)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="level3LoseRow">13</div>
+                        <div class="stat-label">Danger Zone Row</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="reset-btn" onclick="resetDefaults()">Reset to Defaults</button>
+            <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+            <button class="play-btn" onclick="playGame()">Play Game</button>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 800;
+        const LOSE_LINE_Y = 540;
+
+        // Default values
+        const DEFAULTS = {
+            level1Cols: 10,  // Cursed - large bubbles
+            level2Cols: 16,  // Cursed Alt - medium bubbles
+            level3Cols: 24   // Classic - small bubbles
+        };
+
+        // Calculate bubble radius from columns
+        function calculateRadius(cols) {
+            // Formula: cols * 2 * radius + radius (for odd row offset) ≈ CANVAS_WIDTH
+            // So: radius ≈ CANVAS_WIDTH / (2 * cols + 1)
+            return Math.floor(CANVAS_WIDTH / (2 * cols + 1));
+        }
+
+        // Calculate row height from radius
+        function calculateRowHeight(radius) {
+            return Math.round(radius * Math.sqrt(3));
+        }
+
+        // Calculate lose row from radius
+        function calculateLoseRow(radius) {
+            const rowHeight = calculateRowHeight(radius);
+            // Find the row that would be at or just below LOSE_LINE_Y
+            return Math.floor((LOSE_LINE_Y - radius) / rowHeight);
+        }
+
+        // Update display for a level
+        function updateLevel(levelNum) {
+            const cols = parseInt(document.getElementById(`level${levelNum}Cols`).value);
+            const radius = calculateRadius(cols);
+            const rowHeight = calculateRowHeight(radius);
+            const loseRow = calculateLoseRow(radius);
+
+            document.getElementById(`level${levelNum}ColsValue`).textContent = cols;
+            document.getElementById(`level${levelNum}Radius`).textContent = radius;
+            document.getElementById(`level${levelNum}RowHeight`).textContent = rowHeight;
+            document.getElementById(`level${levelNum}LoseRow`).textContent = loseRow;
+        }
+
+        // Initialize sliders
+        function initSliders() {
+            // Load saved settings or use defaults
+            const saved = JSON.parse(localStorage.getItem('bubbleShooterAdmin') || '{}');
+
+            document.getElementById('level1Cols').value = saved.level1Cols || DEFAULTS.level1Cols;
+            document.getElementById('level2Cols').value = saved.level2Cols || DEFAULTS.level2Cols;
+            document.getElementById('level3Cols').value = saved.level3Cols || DEFAULTS.level3Cols;
+
+            // Add event listeners
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`level${i}Cols`).addEventListener('input', () => updateLevel(i));
+                updateLevel(i);
+            }
+        }
+
+        // Save settings to localStorage
+        function saveSettings() {
+            const settings = {
+                level1Cols: parseInt(document.getElementById('level1Cols').value),
+                level2Cols: parseInt(document.getElementById('level2Cols').value),
+                level3Cols: parseInt(document.getElementById('level3Cols').value)
+            };
+
+            // Also save calculated values for the game to use
+            for (let i = 1; i <= 3; i++) {
+                const cols = settings[`level${i}Cols`];
+                const radius = calculateRadius(cols);
+                settings[`level${i}Radius`] = radius;
+                settings[`level${i}LoseRow`] = calculateLoseRow(radius);
+            }
+
+            localStorage.setItem('bubbleShooterAdmin', JSON.stringify(settings));
+
+            const msg = document.getElementById('message');
+            msg.textContent = 'Settings saved successfully! Changes will apply when you start a new game.';
+            msg.className = 'message success';
+
+            setTimeout(() => {
+                msg.className = 'message';
+            }, 3000);
+        }
+
+        // Reset to defaults
+        function resetDefaults() {
+            document.getElementById('level1Cols').value = DEFAULTS.level1Cols;
+            document.getElementById('level2Cols').value = DEFAULTS.level2Cols;
+            document.getElementById('level3Cols').value = DEFAULTS.level3Cols;
+
+            for (let i = 1; i <= 3; i++) {
+                updateLevel(i);
+            }
+
+            localStorage.removeItem('bubbleShooterAdmin');
+
+            const msg = document.getElementById('message');
+            msg.textContent = 'Settings reset to defaults!';
+            msg.className = 'message success';
+
+            setTimeout(() => {
+                msg.className = 'message';
+            }, 3000);
+        }
+
+        // Go to game
+        function playGame() {
+            saveSettings();
+            window.location.href = 'index.html';
+        }
+
+        // Initialize on load
+        initSliders();
+    </script>
+</body>
+</html>

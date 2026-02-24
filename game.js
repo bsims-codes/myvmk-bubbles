@@ -10,21 +10,39 @@
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 
-// Level 1 grid settings
-const LEVEL1_BUBBLE_RADIUS = 16;
-const LEVEL1_GRID_COLS = 24;
-
-// Level 2 grid settings (fewer, larger bubbles)
-const LEVEL2_BUBBLE_RADIUS = 38;
-const LEVEL2_GRID_COLS = 10;
+// Default level settings (can be overridden by admin page)
+// Level 1: Cursed (large bubbles)
+const DEFAULT_LEVEL1_BUBBLE_RADIUS = 38;
+const DEFAULT_LEVEL1_GRID_COLS = 10;
+// Level 2: Cursed Alt (medium bubbles)
+const DEFAULT_LEVEL2_BUBBLE_RADIUS = 24;
+const DEFAULT_LEVEL2_GRID_COLS = 16;
+// Level 3: Classic (small bubbles)
+const DEFAULT_LEVEL3_BUBBLE_RADIUS = 16;
+const DEFAULT_LEVEL3_GRID_COLS = 24;
 
 // Shared grid settings
 const GRID_ROWS = 16; // 14 visible + 2 buffer rows
 const VISIBLE_ROWS = 14;
 
-// Dynamic getters for level-dependent values
+// Load admin settings from localStorage
+function getAdminSettings() {
+    const saved = localStorage.getItem('bubbleShooterAdmin');
+    return saved ? JSON.parse(saved) : null;
+}
+
+// Dynamic getters for level-dependent values (reads from admin settings if available)
 function getBubbleRadius() {
-    return currentLevel === 2 ? LEVEL2_BUBBLE_RADIUS : LEVEL1_BUBBLE_RADIUS;
+    const admin = getAdminSettings();
+    if (admin) {
+        if (currentLevel === 2 && admin.level2Radius) return admin.level2Radius;
+        if (currentLevel === 3 && admin.level3Radius) return admin.level3Radius;
+        if (currentLevel === 1 && admin.level1Radius) return admin.level1Radius;
+    }
+    // Fallback to defaults
+    if (currentLevel === 2) return DEFAULT_LEVEL2_BUBBLE_RADIUS;
+    if (currentLevel === 3) return DEFAULT_LEVEL3_BUBBLE_RADIUS;
+    return DEFAULT_LEVEL1_BUBBLE_RADIUS;
 }
 
 function getRowHeight() {
@@ -32,11 +50,29 @@ function getRowHeight() {
 }
 
 function getGridCols() {
-    return currentLevel === 2 ? LEVEL2_GRID_COLS : LEVEL1_GRID_COLS;
+    const admin = getAdminSettings();
+    if (admin) {
+        if (currentLevel === 2 && admin.level2Cols) return admin.level2Cols;
+        if (currentLevel === 3 && admin.level3Cols) return admin.level3Cols;
+        if (currentLevel === 1 && admin.level1Cols) return admin.level1Cols;
+    }
+    // Fallback to defaults
+    if (currentLevel === 2) return DEFAULT_LEVEL2_GRID_COLS;
+    if (currentLevel === 3) return DEFAULT_LEVEL3_GRID_COLS;
+    return DEFAULT_LEVEL1_GRID_COLS;
 }
 
 function getLoseRow() {
-    return currentLevel === 2 ? LEVEL2_LOSE_ROW : LEVEL1_LOSE_ROW;
+    const admin = getAdminSettings();
+    if (admin) {
+        if (currentLevel === 2 && admin.level2LoseRow) return admin.level2LoseRow;
+        if (currentLevel === 3 && admin.level3LoseRow) return admin.level3LoseRow;
+        if (currentLevel === 1 && admin.level1LoseRow) return admin.level1LoseRow;
+    }
+    // Fallback to defaults
+    if (currentLevel === 2) return LEVEL2_LOSE_ROW;
+    if (currentLevel === 3) return LEVEL3_LOSE_ROW;
+    return LEVEL1_LOSE_ROW;
 }
 const SHOOTER_X = 400;
 const SHOOTER_Y = 560;
@@ -44,8 +80,9 @@ const PROJECTILE_SPEED = 900; // pixels per second
 const MIN_AIM_ANGLE = 10 * (Math.PI / 180);  // 10 degrees in radians
 const MAX_AIM_ANGLE = 170 * (Math.PI / 180); // 170 degrees in radians
 const LOSE_LINE_Y = 540;
-const LEVEL1_LOSE_ROW = 13;
-const LEVEL2_LOSE_ROW = 7;  // Fewer rows fit with larger bubbles
+const LEVEL1_LOSE_ROW = 7;   // Cursed - large bubbles
+const LEVEL2_LOSE_ROW = 12;  // Cursed Alt - medium bubbles
+const LEVEL3_LOSE_ROW = 13;  // Classic - small bubbles
 const SHOTS_BEFORE_NEW_ROW = 5;
 const CLUSTER_MIN_SIZE = 3;
 
@@ -80,17 +117,26 @@ let currentLevel = 1;
 const CURSE_IMAGES = [];
 let curseImagesLoaded = false;
 
-// Custom background for Level 2
+// Custom bubble images for Level 3 (alternate curse images)
+const CURSE_B_IMAGES = [];
+let curseBImagesLoaded = false;
+
+// Custom background for Level 2 & 3
 let curseBackgroundImage = null;
 let curseBackgroundLoaded = false;
 
-// Spinner image for Level 2 (behind shooter)
+// Spinner image for Level 2 & 3 (behind shooter)
 let curseSpinnerImage = null;
 let curseSpinnerLoaded = false;
 const SPINNER_SIZE = 100; // Size of the spinner image
 
+// Custom aim arrow for Level 2 & 3
+let curseArrowImage = null;
+let curseArrowLoaded = false;
+
 // Preload curse images and background
 function preloadCurseImages() {
+    // Level 2 images
     let loadedCount = 0;
     for (let i = 1; i <= NUM_COLORS; i++) {
         const img = new Image();
@@ -105,6 +151,23 @@ function preloadCurseImages() {
             console.warn(`Failed to load curse${i}.png`);
         };
         CURSE_IMAGES.push(img);
+    }
+
+    // Level 3 images (alternate -b versions)
+    let loadedCountB = 0;
+    for (let i = 1; i <= NUM_COLORS; i++) {
+        const img = new Image();
+        img.src = `curse${i}-b.png`;
+        img.onload = () => {
+            loadedCountB++;
+            if (loadedCountB === NUM_COLORS) {
+                curseBImagesLoaded = true;
+            }
+        };
+        img.onerror = () => {
+            console.warn(`Failed to load curse${i}-b.png`);
+        };
+        CURSE_B_IMAGES.push(img);
     }
 
     // Preload curse background
@@ -125,6 +188,16 @@ function preloadCurseImages() {
     };
     curseSpinnerImage.onerror = () => {
         console.warn('Failed to load curse6-spinner.png');
+    };
+
+    // Preload aim arrow image
+    curseArrowImage = new Image();
+    curseArrowImage.src = 'curses-arrow.png';
+    curseArrowImage.onload = () => {
+        curseArrowLoaded = true;
+    };
+    curseArrowImage.onerror = () => {
+        console.warn('Failed to load curses-arrow.png');
     };
 }
 
@@ -484,13 +557,19 @@ function initGame() {
     rng = new SeededRNG(Date.now());
 
     // Load background based on current level
-    if (currentLevel === 2 && curseBackgroundLoaded) {
-        // Level 2: Use curse background
-        backgroundImage = curseBackgroundImage;
+    if (currentLevel === 1 || currentLevel === 2) {
+        // Levels 1 & 2 (Cursed): Use curse background
+        if (curseBackgroundLoaded && curseBackgroundImage) {
+            backgroundImage = curseBackgroundImage;
+        } else {
+            // Load it directly if not preloaded yet
+            backgroundImage = new Image();
+            backgroundImage.src = 'curse-background.png';
+        }
         currentBackgroundName = 'curse-background.png';
         currentBackgroundTile = false;
     } else {
-        // Level 1: Rotate through normal backgrounds
+        // Level 3 (Classic): Rotate through normal backgrounds
         const bgConfig = BACKGROUND_IMAGES[backgroundIndex];
         backgroundImage = new Image();
         currentBackgroundName = bgConfig.src;
@@ -736,9 +815,10 @@ function updateProjectile(dt) {
 function drawBubble(x, y, colorId, highlight = false, overrideRadius = null) {
     const radius = overrideRadius !== null ? overrideRadius : getBubbleRadius();
 
-    // Level 2: Draw custom curse images
-    if (currentLevel === 2 && curseImagesLoaded && CURSE_IMAGES[colorId]) {
-        const img = CURSE_IMAGES[colorId];
+    // Level 2 & 3: Draw custom curse images
+    if ((currentLevel === 1 && curseImagesLoaded && CURSE_IMAGES[colorId]) ||
+        (currentLevel === 2 && curseBImagesLoaded && CURSE_B_IMAGES[colorId])) {
+        const img = currentLevel === 2 ? CURSE_B_IMAGES[colorId] : CURSE_IMAGES[colorId];
         if (img.complete && img.naturalWidth > 0) {
             // Draw the image centered at x, y
             const size = radius * 2;
@@ -799,8 +879,8 @@ function drawGrid() {
  * Draw the shooter
  */
 function drawShooter() {
-    // Draw shooter base (hidden in Level 2 to show spinner)
-    if (currentLevel === 1) {
+    // Draw shooter base (only for Level 3 Classic, hidden in cursed levels to show spinner)
+    if (currentLevel === 3) {
         ctx.beginPath();
         ctx.arc(SHOOTER_X, SHOOTER_Y, 25, 0, Math.PI * 2);
         ctx.fillStyle = '#34495e';
@@ -813,33 +893,45 @@ function drawShooter() {
     // Draw current bubble in shooter
     drawBubble(SHOOTER_X, SHOOTER_Y, gameState.currentBubble);
 
-    // Draw aim line
+    // Draw aim indicator
     const aimLength = 60;
-    const endX = SHOOTER_X + Math.cos(gameState.aimAngle) * aimLength;
-    const endY = SHOOTER_Y - Math.sin(gameState.aimAngle) * aimLength;
-
-    ctx.beginPath();
-    ctx.moveTo(SHOOTER_X, SHOOTER_Y);
-    ctx.lineTo(endX, endY);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Draw aim arrow
-    const arrowSize = 8;
     const angle = gameState.aimAngle;
-    ctx.beginPath();
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-        endX - arrowSize * Math.cos(angle - 0.3),
-        endY + arrowSize * Math.sin(angle - 0.3)
-    );
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-        endX - arrowSize * Math.cos(angle + 0.3),
-        endY + arrowSize * Math.sin(angle + 0.3)
-    );
-    ctx.stroke();
+    const endX = SHOOTER_X + Math.cos(angle) * aimLength;
+    const endY = SHOOTER_Y - Math.sin(angle) * aimLength;
+
+    // Use custom arrow image for levels 2 & 3
+    if ((currentLevel === 1 || currentLevel === 2) && curseArrowLoaded && curseArrowImage.complete) {
+        const arrowSize = 50; // Size of the arrow image
+        ctx.save();
+        ctx.translate(endX, endY);
+        // Rotate to match aim angle (subtract PI/2 because image points up by default)
+        ctx.rotate(-angle + Math.PI / 2);
+        ctx.drawImage(curseArrowImage, -arrowSize / 2, -arrowSize / 2, arrowSize, arrowSize);
+        ctx.restore();
+    } else {
+        // Default aim line for Level 1
+        ctx.beginPath();
+        ctx.moveTo(SHOOTER_X, SHOOTER_Y);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw aim arrow
+        const arrowSize = 8;
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(
+            endX - arrowSize * Math.cos(angle - 0.3),
+            endY + arrowSize * Math.sin(angle - 0.3)
+        );
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(
+            endX - arrowSize * Math.cos(angle + 0.3),
+            endY + arrowSize * Math.sin(angle + 0.3)
+        );
+        ctx.stroke();
+    }
 }
 
 /**
@@ -881,10 +973,16 @@ function drawUI() {
 
     // Next bubble (adjust position for level)
     ctx.textAlign = 'right';
-    if (currentLevel === 2) {
+    if (currentLevel === 1) {
+        // Cursed - large bubbles
         ctx.fillText('Next:', 710, 580);
         drawBubble(760, 560, gameState.nextBubble);
+    } else if (currentLevel === 2) {
+        // Cursed Alt - medium bubbles
+        ctx.fillText('Next:', 730, 580);
+        drawBubble(768, 570, gameState.nextBubble);
     } else {
+        // Classic - small bubbles
         ctx.fillText('Next:', 750, 580);
         drawBubble(775, 575, gameState.nextBubble);
     }
@@ -913,7 +1011,7 @@ function drawUI() {
     ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'left';
-    const zoneLabel = currentLevel === 2 ? 'CURSED ZONE' : 'DANGER ZONE';
+    const zoneLabel = (currentLevel === 1 || currentLevel === 2) ? 'CURSED ZONE' : 'DANGER ZONE';
     ctx.fillText(zoneLabel, 10, dangerLineY + 15);
 }
 
@@ -1044,7 +1142,7 @@ function render() {
 
     // Draw background image with transparency
     if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-        ctx.globalAlpha = (currentLevel === 2) ? CURSE_BACKGROUND_OPACITY : BACKGROUND_OPACITY;
+        ctx.globalAlpha = (currentLevel === 1 || currentLevel === 2) ? CURSE_BACKGROUND_OPACITY : BACKGROUND_OPACITY;
 
         if (currentBackgroundTile) {
             // Tile/repeat the image across the canvas
@@ -1065,7 +1163,7 @@ function render() {
     }
 
     // Draw spinner behind shooter (Level 2 only)
-    if (currentLevel === 2 && curseSpinnerLoaded && curseSpinnerImage.complete) {
+    if ((currentLevel === 1 || currentLevel === 2) && curseSpinnerLoaded && curseSpinnerImage.complete) {
         const spinnerX = SHOOTER_X - SPINNER_SIZE / 2;
         const spinnerY = SHOOTER_Y - SPINNER_SIZE / 2;
         ctx.drawImage(curseSpinnerImage, spinnerX, spinnerY, SPINNER_SIZE, SPINNER_SIZE);
@@ -1133,13 +1231,18 @@ function setLevel(level) {
     // Update button states
     const level1Btn = document.getElementById('level1Btn');
     const level2Btn = document.getElementById('level2Btn');
+    const level3Btn = document.getElementById('level3Btn');
+
+    level1Btn.classList.remove('active');
+    level2Btn.classList.remove('active');
+    level3Btn.classList.remove('active');
 
     if (level === 1) {
         level1Btn.classList.add('active');
-        level2Btn.classList.remove('active');
-    } else {
-        level1Btn.classList.remove('active');
+    } else if (level === 2) {
         level2Btn.classList.add('active');
+    } else if (level === 3) {
+        level3Btn.classList.add('active');
     }
 
     // Restart the game with new level
@@ -1268,6 +1371,7 @@ function init() {
     // Level toggle buttons
     document.getElementById('level1Btn').addEventListener('click', () => setLevel(1));
     document.getElementById('level2Btn').addEventListener('click', () => setLevel(2));
+    document.getElementById('level3Btn').addEventListener('click', () => setLevel(3));
 
     // Leaderboard button
     document.getElementById('leaderboardBtn').addEventListener('click', openLeaderboard);

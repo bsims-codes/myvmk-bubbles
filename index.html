@@ -100,6 +100,20 @@
             color: #1a1a2e;
             border-color: #f1c40f;
         }
+        #adminLink {
+            margin-left: 15px;
+            padding: 6px 12px;
+            color: #7f8c8d;
+            text-decoration: none;
+            font-size: 12px;
+            border: 1px solid #4a4a6a;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        #adminLink:hover {
+            color: #ecf0f1;
+            border-color: #ecf0f1;
+        }
         #gameCanvas {
             border: 2px solid #4a4a6a;
             background-color: #16213e;
@@ -251,7 +265,9 @@
             <span>Level:</span>
             <button id="level1Btn" class="level-btn active">1</button>
             <button id="level2Btn" class="level-btn">2</button>
+            <button id="level3Btn" class="level-btn">3</button>
         </div>
+        <a href="admin.html" id="adminLink">Admin</a>
     </div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
