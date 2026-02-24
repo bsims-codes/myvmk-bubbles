@@ -733,8 +733,8 @@ function updateProjectile(dt) {
 /**
  * Draw a bubble at the specified position
  */
-function drawBubble(x, y, colorId, highlight = false) {
-    const radius = getBubbleRadius();
+function drawBubble(x, y, colorId, highlight = false, overrideRadius = null) {
+    const radius = overrideRadius !== null ? overrideRadius : getBubbleRadius();
 
     // Level 2: Draw custom curse images
     if (currentLevel === 2 && curseImagesLoaded && CURSE_IMAGES[colorId]) {
@@ -879,10 +879,15 @@ function drawUI() {
         ctx.fillStyle = '#ecf0f1';
     }
 
-    // Next bubble
+    // Next bubble (adjust position for level)
     ctx.textAlign = 'right';
-    ctx.fillText('Next:', 750, 580);
-    drawBubble(770, 575, gameState.nextBubble);
+    if (currentLevel === 2) {
+        ctx.fillText('Next:', 710, 580);
+        drawBubble(760, 560, gameState.nextBubble);
+    } else {
+        ctx.fillText('Next:', 750, 580);
+        drawBubble(775, 575, gameState.nextBubble);
+    }
 
     // Danger zone indicator at row 13
     const dangerLineY = getLoseRow() * getRowHeight() + getBubbleRadius();
