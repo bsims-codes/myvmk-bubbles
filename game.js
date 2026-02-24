@@ -890,16 +890,13 @@ function drawShooter() {
         ctx.stroke();
     }
 
-    // Draw current bubble in shooter
-    drawBubble(SHOOTER_X, SHOOTER_Y, gameState.currentBubble);
-
-    // Draw aim indicator
+    // Draw aim indicator (BEFORE bubble so bubble renders on top)
     const aimLength = 60;
     const angle = gameState.aimAngle;
     const endX = SHOOTER_X + Math.cos(angle) * aimLength;
     const endY = SHOOTER_Y - Math.sin(angle) * aimLength;
 
-    // Use custom arrow image for levels 2 & 3
+    // Use custom arrow image for cursed levels (1 & 2)
     if ((currentLevel === 1 || currentLevel === 2) && curseArrowLoaded && curseArrowImage.complete) {
         const arrowSize = 50; // Size of the arrow image
         ctx.save();
@@ -909,7 +906,7 @@ function drawShooter() {
         ctx.drawImage(curseArrowImage, -arrowSize / 2, -arrowSize / 2, arrowSize, arrowSize);
         ctx.restore();
     } else {
-        // Default aim line for Level 1
+        // Default aim line for Level 3 Classic
         ctx.beginPath();
         ctx.moveTo(SHOOTER_X, SHOOTER_Y);
         ctx.lineTo(endX, endY);
@@ -932,6 +929,9 @@ function drawShooter() {
         );
         ctx.stroke();
     }
+
+    // Draw current bubble in shooter (on top of aim indicator)
+    drawBubble(SHOOTER_X, SHOOTER_Y, gameState.currentBubble);
 }
 
 /**
@@ -987,7 +987,12 @@ function drawUI() {
         drawBubble(775, 575, gameState.nextBubble);
     }
 
-    // Danger zone indicator at row 13
+}
+
+/**
+ * Draw the danger/cursed zone overlay (called early in render for proper layering)
+ */
+function drawDangerZone() {
     const dangerLineY = getLoseRow() * getRowHeight() + getBubbleRadius();
 
     // Draw subtle danger zone gradient below the line
@@ -1162,7 +1167,10 @@ function render() {
         ctx.globalAlpha = 1.0;
     }
 
-    // Draw spinner behind shooter (Level 2 only)
+    // Draw danger/cursed zone (second layer, right after background)
+    drawDangerZone();
+
+    // Draw spinner behind shooter (Levels 1 & 2)
     if ((currentLevel === 1 || currentLevel === 2) && curseSpinnerLoaded && curseSpinnerImage.complete) {
         const spinnerX = SHOOTER_X - SPINNER_SIZE / 2;
         const spinnerY = SHOOTER_Y - SPINNER_SIZE / 2;
