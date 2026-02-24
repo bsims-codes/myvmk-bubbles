@@ -34,6 +34,20 @@ function getAdminSettings() {
 // Dynamic getters for level-dependent values (reads from admin settings if available)
 function getBubbleRadius() {
     const admin = getAdminSettings();
+
+    // Handle custom levels
+    if (isCustomLevel()) {
+        const level = getCurrentCustomLevel();
+        if (level) {
+            // Check admin settings for custom level
+            if (admin && admin[`${currentLevel}_radius`]) {
+                return admin[`${currentLevel}_radius`];
+            }
+            // Calculate from columns
+            return Math.floor(CANVAS_WIDTH / (2 * level.columns + 1));
+        }
+    }
+
     if (admin) {
         if (currentLevel === 2 && admin.level2Radius) return admin.level2Radius;
         if (currentLevel === 3 && admin.level3Radius) return admin.level3Radius;
@@ -51,6 +65,19 @@ function getRowHeight() {
 
 function getGridCols() {
     const admin = getAdminSettings();
+
+    // Handle custom levels
+    if (isCustomLevel()) {
+        const level = getCurrentCustomLevel();
+        if (level) {
+            // Check admin settings for custom level columns override
+            if (admin && admin[`${currentLevel}_cols`]) {
+                return admin[`${currentLevel}_cols`];
+            }
+            return level.columns;
+        }
+    }
+
     if (admin) {
         if (currentLevel === 2 && admin.level2Cols) return admin.level2Cols;
         if (currentLevel === 3 && admin.level3Cols) return admin.level3Cols;
@@ -64,6 +91,22 @@ function getGridCols() {
 
 function getLoseRow() {
     const admin = getAdminSettings();
+
+    // Handle custom levels
+    if (isCustomLevel()) {
+        const level = getCurrentCustomLevel();
+        if (level) {
+            // Check admin settings for custom level lose row override
+            if (admin && admin[`${currentLevel}_loseRow`]) {
+                return admin[`${currentLevel}_loseRow`];
+            }
+            // Calculate from bubble radius
+            const radius = getBubbleRadius();
+            const rowHeight = radius * Math.sqrt(3);
+            return Math.floor((LOSE_LINE_Y - radius) / rowHeight);
+        }
+    }
+
     if (admin) {
         if (currentLevel === 2 && admin.level2LoseRow) return admin.level2LoseRow;
         if (currentLevel === 3 && admin.level3LoseRow) return admin.level3LoseRow;
@@ -133,6 +176,160 @@ const SPINNER_SIZE = 100; // Size of the spinner image
 // Custom aim arrow for Level 2 & 3
 let curseArrowImage = null;
 let curseArrowLoaded = false;
+
+// ============================================================================
+// CUSTOM LEVELS SUPPORT (with IndexedDB image storage)
+// ============================================================================
+
+const CUSTOM_LEVELS_KEY = 'bubbleShooterCustomLevels';
+const DB_NAME = 'BubbleShooterImages';
+const DB_VERSION = 1;
+const STORE_NAME = 'images';
+
+let customLevelsDB = null;
+let customLevels = []; // Array of custom level configs
+let customLevelImages = {}; // { levelId: { bubbles: [], background: Image, arrow: Image, spinner: Image, loaded: boolean } }
+
+// Initialize IndexedDB
+function initCustomLevelsDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => {
+            console.warn('IndexedDB not available:', request.error);
+            resolve(null);
+        };
+        request.onsuccess = () => {
+            customLevelsDB = request.result;
+            resolve(customLevelsDB);
+        };
+
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+    });
+}
+
+// Get an image from IndexedDB
+function getImageFromDB(id) {
+    return new Promise((resolve, reject) => {
+        if (!customLevelsDB) {
+            resolve(null);
+            return;
+        }
+        const transaction = customLevelsDB.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
+
+        request.onsuccess = () => resolve(request.result?.blob || null);
+        request.onerror = () => {
+            console.warn('Error getting image from DB:', request.error);
+            resolve(null);
+        };
+    });
+}
+
+// Load custom levels from localStorage
+function loadCustomLevels() {
+    const saved = localStorage.getItem(CUSTOM_LEVELS_KEY);
+    customLevels = saved ? JSON.parse(saved) : [];
+    return customLevels;
+}
+
+// Get a custom level by ID
+function getCustomLevelById(levelId) {
+    return customLevels.find(l => l.id === levelId);
+}
+
+// Check if current level is a custom level
+function isCustomLevel() {
+    return typeof currentLevel === 'string' && currentLevel.startsWith('custom_');
+}
+
+// Get current custom level config (if applicable)
+function getCurrentCustomLevel() {
+    if (!isCustomLevel()) return null;
+    return getCustomLevelById(currentLevel);
+}
+
+// Preload images for a specific custom level from IndexedDB
+async function preloadCustomLevelImages(levelId) {
+    const level = getCustomLevelById(levelId);
+    if (!level) return;
+
+    // Skip if already loaded
+    if (customLevelImages[levelId] && customLevelImages[levelId].loaded) return;
+
+    customLevelImages[levelId] = {
+        bubbles: [],
+        background: null,
+        arrow: null,
+        spinner: null,
+        loaded: false
+    };
+
+    const imgData = customLevelImages[levelId];
+
+    try {
+        // Load bubble images from IndexedDB
+        for (let i = 0; i < level.bubbleCount; i++) {
+            const blob = await getImageFromDB(`${levelId}_bubble_${i}`);
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.src = url;
+                imgData.bubbles[i] = img;
+            }
+        }
+
+        // Load background (optional)
+        if (level.hasBackground) {
+            const blob = await getImageFromDB(`${levelId}_background`);
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                imgData.background = new Image();
+                imgData.background.src = url;
+            }
+        }
+
+        // Load arrow (optional)
+        if (level.hasArrow) {
+            const blob = await getImageFromDB(`${levelId}_arrow`);
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                imgData.arrow = new Image();
+                imgData.arrow.src = url;
+            }
+        }
+
+        // Load spinner (optional)
+        if (level.hasSpinner) {
+            const blob = await getImageFromDB(`${levelId}_spinner`);
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                imgData.spinner = new Image();
+                imgData.spinner.src = url;
+            }
+        }
+
+        imgData.loaded = true;
+    } catch (error) {
+        console.warn('Error loading custom level images:', error);
+        imgData.loaded = true; // Mark as loaded even on error to prevent infinite retries
+    }
+}
+
+// Get number of colors for current level
+function getNumColors() {
+    if (isCustomLevel()) {
+        const level = getCurrentCustomLevel();
+        return level ? level.bubbleCount : NUM_COLORS;
+    }
+    return NUM_COLORS;
+}
 
 // Preload curse images and background
 function preloadCurseImages() {
@@ -556,8 +753,34 @@ function initGame() {
     // Reset RNG with new seed for new game
     rng = new SeededRNG(Date.now());
 
+    // Get number of colors for current level
+    const numColors = getNumColors();
+
     // Load background based on current level
-    if (currentLevel === 1 || currentLevel === 2) {
+    if (isCustomLevel()) {
+        // Custom level: Use custom background if available
+        const level = getCurrentCustomLevel();
+        const imgData = customLevelImages[currentLevel];
+        if (imgData && imgData.background && imgData.background.complete) {
+            backgroundImage = imgData.background;
+            currentBackgroundName = level.backgroundImage;
+        } else if (level && level.backgroundImage) {
+            // Load it directly
+            backgroundImage = new Image();
+            backgroundImage.src = level.backgroundImage;
+            currentBackgroundName = level.backgroundImage;
+        } else {
+            // No custom background, use rotating backgrounds
+            const bgConfig = BACKGROUND_IMAGES[backgroundIndex];
+            backgroundImage = new Image();
+            currentBackgroundName = bgConfig.src;
+            currentBackgroundTile = bgConfig.tile;
+            backgroundImage.src = bgConfig.src;
+            backgroundIndex = (backgroundIndex + 1) % BACKGROUND_IMAGES.length;
+            localStorage.setItem('vmkBubbleBackgroundIndex', backgroundIndex.toString());
+        }
+        currentBackgroundTile = false;
+    } else if (currentLevel === 1 || currentLevel === 2) {
         // Levels 1 & 2 (Cursed): Use curse background
         if (curseBackgroundLoaded && curseBackgroundImage) {
             backgroundImage = curseBackgroundImage;
@@ -592,14 +815,14 @@ function initGame() {
     // Fill initial rows with bubbles
     for (let row = 0; row < INITIAL_ROWS; row++) {
         for (let col = 0; col < gridCols; col++) {
-            gameState.grid[row][col] = rng.nextInt(0, NUM_COLORS - 1);
+            gameState.grid[row][col] = rng.nextInt(0, numColors - 1);
         }
     }
 
     // Reset game state
     gameState.projectile = null;
-    gameState.currentBubble = rng.nextInt(0, NUM_COLORS - 1);
-    gameState.nextBubble = rng.nextInt(0, NUM_COLORS - 1);
+    gameState.currentBubble = rng.nextInt(0, numColors - 1);
+    gameState.nextBubble = rng.nextInt(0, numColors - 1);
     gameState.score = 0;
     gameState.shots = 0;
     gameState.shotsWithoutPop = 0;
@@ -632,7 +855,7 @@ function fireBubble() {
 
     // Cycle to next bubble
     gameState.currentBubble = gameState.nextBubble;
-    gameState.nextBubble = rng.nextInt(0, NUM_COLORS - 1);
+    gameState.nextBubble = rng.nextInt(0, getNumColors() - 1);
     gameState.shots++;
 }
 
@@ -705,7 +928,7 @@ function addNewRow() {
 
     // Generate new row at top
     for (let col = 0; col < gridCols; col++) {
-        gameState.grid[0][col] = rng.nextInt(0, NUM_COLORS - 1);
+        gameState.grid[0][col] = rng.nextInt(0, getNumColors() - 1);
     }
 }
 
@@ -815,7 +1038,29 @@ function updateProjectile(dt) {
 function drawBubble(x, y, colorId, highlight = false, overrideRadius = null) {
     const radius = overrideRadius !== null ? overrideRadius : getBubbleRadius();
 
-    // Level 2 & 3: Draw custom curse images
+    // Custom levels: Draw custom bubble images
+    if (isCustomLevel()) {
+        const imgData = customLevelImages[currentLevel];
+        if (imgData && imgData.bubbles[colorId]) {
+            const img = imgData.bubbles[colorId];
+            if (img.complete && img.naturalWidth > 0) {
+                const size = radius * 2;
+                ctx.drawImage(img, x - radius, y - radius, size, size);
+
+                if (highlight) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                return;
+            }
+        }
+        // Fallback to colored circles for custom levels if images not loaded
+    }
+
+    // Level 1 & 2: Draw custom curse images
     if ((currentLevel === 1 && curseImagesLoaded && CURSE_IMAGES[colorId]) ||
         (currentLevel === 2 && curseBImagesLoaded && CURSE_B_IMAGES[colorId])) {
         const img = currentLevel === 2 ? CURSE_B_IMAGES[colorId] : CURSE_IMAGES[colorId];
@@ -836,8 +1081,8 @@ function drawBubble(x, y, colorId, highlight = false, overrideRadius = null) {
         }
     }
 
-    // Level 1 (default): Draw colored circles
-    const color = BUBBLE_COLORS[colorId];
+    // Level 3 (Classic) or fallback: Draw colored circles
+    const color = BUBBLE_COLORS[colorId % BUBBLE_COLORS.length];
 
     // Main bubble
     ctx.beginPath();
@@ -879,8 +1124,9 @@ function drawGrid() {
  * Draw the shooter
  */
 function drawShooter() {
-    // Draw shooter base (only for Level 3 Classic, hidden in cursed levels to show spinner)
-    if (currentLevel === 3) {
+    // Draw shooter base (only for Level 3 Classic and custom levels without spinner)
+    const hasCustomSpinner = isCustomLevel() && getCurrentCustomLevel()?.spinnerImage;
+    if (currentLevel === 3 || (isCustomLevel() && !hasCustomSpinner)) {
         ctx.beginPath();
         ctx.arc(SHOOTER_X, SHOOTER_Y, 25, 0, Math.PI * 2);
         ctx.fillStyle = '#34495e';
@@ -896,8 +1142,24 @@ function drawShooter() {
     const endX = SHOOTER_X + Math.cos(angle) * aimLength;
     const endY = SHOOTER_Y - Math.sin(angle) * aimLength;
 
+    let arrowDrawn = false;
+
+    // Check for custom level arrow first
+    if (isCustomLevel()) {
+        const imgData = customLevelImages[currentLevel];
+        if (imgData && imgData.arrow && imgData.arrow.complete && imgData.arrow.naturalWidth > 0) {
+            const arrowSize = 50;
+            ctx.save();
+            ctx.translate(endX, endY);
+            ctx.rotate(-angle + Math.PI / 2);
+            ctx.drawImage(imgData.arrow, -arrowSize / 2, -arrowSize / 2, arrowSize, arrowSize);
+            ctx.restore();
+            arrowDrawn = true;
+        }
+    }
+
     // Use custom arrow image for cursed levels (1 & 2)
-    if ((currentLevel === 1 || currentLevel === 2) && curseArrowLoaded && curseArrowImage.complete) {
+    if (!arrowDrawn && (currentLevel === 1 || currentLevel === 2) && curseArrowLoaded && curseArrowImage.complete) {
         const arrowSize = 50; // Size of the arrow image
         ctx.save();
         ctx.translate(endX, endY);
@@ -905,8 +1167,11 @@ function drawShooter() {
         ctx.rotate(-angle + Math.PI / 2);
         ctx.drawImage(curseArrowImage, -arrowSize / 2, -arrowSize / 2, arrowSize, arrowSize);
         ctx.restore();
-    } else {
-        // Default aim line for Level 3 Classic
+        arrowDrawn = true;
+    }
+
+    // Default aim line for levels without custom arrows
+    if (!arrowDrawn) {
         ctx.beginPath();
         ctx.moveTo(SHOOTER_X, SHOOTER_Y);
         ctx.lineTo(endX, endY);
@@ -1016,7 +1281,13 @@ function drawDangerZone() {
     ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'left';
-    const zoneLabel = (currentLevel === 1 || currentLevel === 2) ? 'CURSED ZONE' : 'DANGER ZONE';
+    let zoneLabel = 'DANGER ZONE';
+    if (currentLevel === 1 || currentLevel === 2) {
+        zoneLabel = 'CURSED ZONE';
+    } else if (isCustomLevel()) {
+        const customLevel = getCurrentCustomLevel();
+        zoneLabel = customLevel ? customLevel.name.toUpperCase() + ' ZONE' : 'CUSTOM ZONE';
+    }
     ctx.fillText(zoneLabel, 10, dangerLineY + 15);
 }
 
@@ -1147,7 +1418,10 @@ function render() {
 
     // Draw background image with transparency
     if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-        ctx.globalAlpha = (currentLevel === 1 || currentLevel === 2) ? CURSE_BACKGROUND_OPACITY : BACKGROUND_OPACITY;
+        // Use higher opacity for cursed levels and custom levels with backgrounds
+        const useHighOpacity = currentLevel === 1 || currentLevel === 2 ||
+            (isCustomLevel() && getCurrentCustomLevel()?.backgroundImage);
+        ctx.globalAlpha = useHighOpacity ? CURSE_BACKGROUND_OPACITY : BACKGROUND_OPACITY;
 
         if (currentBackgroundTile) {
             // Tile/repeat the image across the canvas
@@ -1170,8 +1444,22 @@ function render() {
     // Draw danger/cursed zone (second layer, right after background)
     drawDangerZone();
 
-    // Draw spinner behind shooter (Levels 1 & 2)
-    if ((currentLevel === 1 || currentLevel === 2) && curseSpinnerLoaded && curseSpinnerImage.complete) {
+    // Draw spinner behind shooter
+    let spinnerDrawn = false;
+
+    // Custom level spinner
+    if (isCustomLevel()) {
+        const imgData = customLevelImages[currentLevel];
+        if (imgData && imgData.spinner && imgData.spinner.complete && imgData.spinner.naturalWidth > 0) {
+            const spinnerX = SHOOTER_X - SPINNER_SIZE / 2;
+            const spinnerY = SHOOTER_Y - SPINNER_SIZE / 2;
+            ctx.drawImage(imgData.spinner, spinnerX, spinnerY, SPINNER_SIZE, SPINNER_SIZE);
+            spinnerDrawn = true;
+        }
+    }
+
+    // Levels 1 & 2 spinner
+    if (!spinnerDrawn && (currentLevel === 1 || currentLevel === 2) && curseSpinnerLoaded && curseSpinnerImage.complete) {
         const spinnerX = SHOOTER_X - SPINNER_SIZE / 2;
         const spinnerY = SHOOTER_Y - SPINNER_SIZE / 2;
         ctx.drawImage(curseSpinnerImage, spinnerX, spinnerY, SPINNER_SIZE, SPINNER_SIZE);
@@ -1233,8 +1521,13 @@ function handleKeyDown(e) {
 /**
  * Set the current level and update UI
  */
-function setLevel(level) {
+async function setLevel(level) {
     currentLevel = level;
+
+    // Preload custom level images if needed (async)
+    if (typeof level === 'string' && level.startsWith('custom_')) {
+        await preloadCustomLevelImages(level);
+    }
 
     // Update button states
     const level1Btn = document.getElementById('level1Btn');
@@ -1245,12 +1538,23 @@ function setLevel(level) {
     level2Btn.classList.remove('active');
     level3Btn.classList.remove('active');
 
+    // Remove active from all custom level buttons
+    document.querySelectorAll('.custom-level-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
     if (level === 1) {
         level1Btn.classList.add('active');
     } else if (level === 2) {
         level2Btn.classList.add('active');
     } else if (level === 3) {
         level3Btn.classList.add('active');
+    } else if (typeof level === 'string' && level.startsWith('custom_')) {
+        // Activate custom level button
+        const customBtn = document.getElementById(`btn_${level}`);
+        if (customBtn) {
+            customBtn.classList.add('active');
+        }
     }
 
     // Restart the game with new level
@@ -1367,9 +1671,16 @@ function escapeHtml(text) {
 // INITIALIZATION
 // ============================================================================
 
-function init() {
+async function init() {
+    // Initialize IndexedDB for custom level images
+    await initCustomLevelsDB();
+
     // Preload curse images for Level 2
     preloadCurseImages();
+
+    // Load custom levels
+    loadCustomLevels();
+    renderCustomLevelButtons();
 
     // Set up event listeners
     canvas.addEventListener('mousemove', handleMouseMove);
@@ -1405,11 +1716,37 @@ function init() {
         }
     });
 
+    // Check if we should start with a custom level (from Level Creator "Save & Play")
+    const playCustomLevel = sessionStorage.getItem('playCustomLevel');
+    if (playCustomLevel) {
+        sessionStorage.removeItem('playCustomLevel');
+        await preloadCustomLevelImages(playCustomLevel);
+        currentLevel = playCustomLevel;
+    }
+
     // Initialize game state
     initGame();
 
     // Start game loop
     requestAnimationFrame(gameLoop);
+}
+
+// Render custom level buttons in the header
+function renderCustomLevelButtons() {
+    const container = document.getElementById('customLevelButtons');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    customLevels.forEach((level, index) => {
+        const btn = document.createElement('button');
+        btn.id = `btn_${level.id}`;
+        btn.className = 'level-btn custom-level-btn';
+        btn.textContent = index + 4; // 4, 5, 6...
+        btn.title = level.name;
+        btn.addEventListener('click', () => setLevel(level.id));
+        container.appendChild(btn);
+    });
 }
 
 // Start the game when page loads

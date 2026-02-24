@@ -100,6 +100,29 @@
             color: #1a1a2e;
             border-color: #f1c40f;
         }
+        #customLevelButtons {
+            display: inline-flex;
+            gap: 8px;
+        }
+        #createLevelLink {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            border: 2px solid #9b59b6;
+            border-radius: 5px;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        #createLevelLink:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+        }
         #adminLink {
             margin-left: 15px;
             padding: 6px 12px;
@@ -266,6 +289,8 @@
             <button id="level1Btn" class="level-btn active">1</button>
             <button id="level2Btn" class="level-btn">2</button>
             <button id="level3Btn" class="level-btn">3</button>
+            <span id="customLevelButtons"></span>
+            <a href="level-creator.html" id="createLevelLink" title="Create Custom Level">+</a>
         </div>
         <a href="admin.html" id="adminLink">Admin</a>
     </div>

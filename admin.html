@@ -278,6 +278,17 @@
             </div>
         </div>
 
+        <!-- Custom Levels Section -->
+        <div id="customLevelsSection" style="margin-top: 30px;">
+            <h2 style="color: #9b59b6; margin-bottom: 20px;">Custom Levels</h2>
+            <div id="customLevelsContainer">
+                <!-- Dynamically populated -->
+            </div>
+            <div id="noCustomLevels" style="text-align: center; color: #7f8c8d; padding: 20px; background: #16213e; border-radius: 10px; border: 1px dashed #4a4a6a;">
+                No custom levels yet. <a href="level-creator.html" style="color: #9b59b6;">Create one</a>
+            </div>
+        </div>
+
         <div class="buttons">
             <button class="reset-btn" onclick="resetDefaults()">Reset to Defaults</button>
             <button class="save-btn" onclick="saveSettings()">Save Settings</button>
@@ -344,6 +355,85 @@
                 document.getElementById(`level${i}Cols`).addEventListener('input', () => updateLevel(i));
                 updateLevel(i);
             }
+
+            // Load custom levels
+            loadCustomLevels();
+        }
+
+        // Load and display custom levels
+        function loadCustomLevels() {
+            const customLevels = JSON.parse(localStorage.getItem('bubbleShooterCustomLevels') || '[]');
+            const container = document.getElementById('customLevelsContainer');
+            const noLevels = document.getElementById('noCustomLevels');
+            const saved = JSON.parse(localStorage.getItem('bubbleShooterAdmin') || '{}');
+
+            if (customLevels.length === 0) {
+                container.innerHTML = '';
+                noLevels.style.display = 'block';
+                return;
+            }
+
+            noLevels.style.display = 'none';
+
+            container.innerHTML = customLevels.map((level, index) => {
+                const savedCols = saved[`${level.id}_cols`] || level.columns;
+                const radius = calculateRadius(savedCols);
+                const rowHeight = calculateRowHeight(radius);
+                const loseRow = calculateLoseRow(radius);
+
+                return `
+                    <div class="level-card" data-level-id="${level.id}">
+                        <h2><span class="level-num" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);">${index + 4}</span> ${level.name}</h2>
+                        <div class="setting-row">
+                            <label>Columns:</label>
+                            <input type="range" class="custom-cols-slider" data-level-id="${level.id}" min="6" max="30" value="${savedCols}">
+                            <span class="value custom-cols-value" data-level-id="${level.id}">${savedCols}</span>
+                        </div>
+                        <div class="preview-box">
+                            <h4>Calculated Values</h4>
+                            <div class="preview-stats">
+                                <div class="stat">
+                                    <div class="stat-value custom-radius" data-level-id="${level.id}">${radius}</div>
+                                    <div class="stat-label">Bubble Radius (px)</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value custom-row-height" data-level-id="${level.id}">${rowHeight}</div>
+                                    <div class="stat-label">Row Height (px)</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value custom-lose-row" data-level-id="${level.id}">${loseRow}</div>
+                                    <div class="stat-label">Danger Zone Row</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 12px; color: #7f8c8d;">
+                            ${level.bubbleImages.length} bubbles
+                            ${level.backgroundImage ? ' | Custom background' : ''}
+                            ${level.arrowImage ? ' | Custom arrow' : ''}
+                            ${level.spinnerImage ? ' | Custom spinner' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add event listeners for custom level sliders
+            document.querySelectorAll('.custom-cols-slider').forEach(slider => {
+                slider.addEventListener('input', (e) => updateCustomLevel(e.target.dataset.levelId));
+            });
+        }
+
+        // Update custom level preview
+        function updateCustomLevel(levelId) {
+            const slider = document.querySelector(`.custom-cols-slider[data-level-id="${levelId}"]`);
+            const cols = parseInt(slider.value);
+            const radius = calculateRadius(cols);
+            const rowHeight = calculateRowHeight(radius);
+            const loseRow = calculateLoseRow(radius);
+
+            document.querySelector(`.custom-cols-value[data-level-id="${levelId}"]`).textContent = cols;
+            document.querySelector(`.custom-radius[data-level-id="${levelId}"]`).textContent = radius;
+            document.querySelector(`.custom-row-height[data-level-id="${levelId}"]`).textContent = rowHeight;
+            document.querySelector(`.custom-lose-row[data-level-id="${levelId}"]`).textContent = loseRow;
         }
 
         // Save settings to localStorage
@@ -361,6 +451,16 @@
                 settings[`level${i}Radius`] = radius;
                 settings[`level${i}LoseRow`] = calculateLoseRow(radius);
             }
+
+            // Save custom level settings
+            document.querySelectorAll('.custom-cols-slider').forEach(slider => {
+                const levelId = slider.dataset.levelId;
+                const cols = parseInt(slider.value);
+                const radius = calculateRadius(cols);
+                settings[`${levelId}_cols`] = cols;
+                settings[`${levelId}_radius`] = radius;
+                settings[`${levelId}_loseRow`] = calculateLoseRow(radius);
+            });
 
             localStorage.setItem('bubbleShooterAdmin', JSON.stringify(settings));
 

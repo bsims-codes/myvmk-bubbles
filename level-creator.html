@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Shooter - Level Creator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #ecf0f1;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #f1c40f;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .info-box {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info-box h3 {
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+        .info-box p {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .creator-card {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a1a2e 100%);
+            border: 2px solid #4a4a6a;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .creator-card h2 {
+            color: #f1c40f;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ecf0f1;
+        }
+        .form-group .hint {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: 2px solid #4a4a6a;
+            border-radius: 5px;
+            background: #16213e;
+            color: #ecf0f1;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #f1c40f;
+        }
+        .bubble-images-container {
+            background: #16213e;
+            border: 1px solid #4a4a6a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .bubble-image-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .bubble-image-row:last-child {
+            margin-bottom: 0;
+        }
+        .bubble-image-row .bubble-num {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .bubble-image-row .remove-btn {
+            background: #e74c3c;
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .bubble-image-row .remove-btn:hover {
+            background: #c0392b;
+        }
+        .file-upload-wrapper {
+            flex: 1;
+            min-width: 200px;
+        }
+        .file-upload-btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+        .file-upload-btn:hover {
+            transform: scale(1.02);
+        }
+        .file-upload-btn input[type="file"] {
+            display: none;
+        }
+        .file-name {
+            margin-left: 10px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .file-name.has-file {
+            color: #2ecc71;
+        }
+        .image-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            object-fit: cover;
+            border: 2px solid #4a4a6a;
+            flex-shrink: 0;
+        }
+        .image-preview.empty {
+            background: #16213e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4a4a6a;
+            font-size: 20px;
+        }
+        .add-bubble-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .add-bubble-btn:hover {
+            transform: scale(1.02);
+        }
+        .add-bubble-btn:disabled {
+            background: #7f8c8d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .optional-image-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            border: 1px solid #4a4a6a;
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .setting-row label {
+            width: 150px;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        .setting-row input[type="range"] {
+            flex: 1;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #4a4a6a;
+            border-radius: 4px;
+            outline: none;
+        }
+        .setting-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #f1c40f;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .setting-row .value {
+            width: 80px;
+            text-align: center;
+            background: #16213e;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #4a4a6a;
+        }
+        .preview-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            border: 1px solid #4a4a6a;
+        }
+        .preview-box h4 {
+            color: #9b59b6;
+            margin-bottom: 10px;
+        }
+        .preview-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            color: #f1c40f;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .save-btn {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+        }
+        .clear-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        .play-btn {
+            background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+            color: #1a1a2e;
+        }
+        .message {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .message.success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            color: #2ecc71;
+            display: block;
+        }
+        .message.error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            color: #e74c3c;
+            display: block;
+        }
+        .message.info {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+            color: #3498db;
+            display: block;
+        }
+
+        /* Existing Levels Section */
+        .levels-section {
+            margin-top: 40px;
+        }
+        .levels-section h2 {
+            color: #f1c40f;
+            margin-bottom: 20px;
+        }
+        .level-item {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a1a2e 100%);
+            border: 2px solid #4a4a6a;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .level-item .level-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .level-item .level-previews {
+            display: flex;
+            gap: 5px;
+        }
+        .level-item .level-previews img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #4a4a6a;
+        }
+        .level-item .level-text {
+            flex: 1;
+        }
+        .level-item .level-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ecf0f1;
+        }
+        .level-item .level-details {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .level-item .level-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .level-item .edit-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        .level-item .delete-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        .no-levels {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 30px;
+            background: #16213e;
+            border-radius: 10px;
+            border: 1px dashed #4a4a6a;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #4a4a6a;
+            border-radius: 50%;
+            border-top-color: #f1c40f;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to Game</a>
+        <h1>Level Creator</h1>
+
+        <div class="info-box">
+            <h3>How to Create a Level</h3>
+            <p>1. Give your level a name<br>
+               2. Upload bubble images (PNG or JPG) - these will be stored in your browser<br>
+               3. Optionally add background, arrow, and spinner images<br>
+               4. Adjust the number of columns<br>
+               5. Save and play your custom level!</p>
+        </div>
+
+        <div class="creator-card">
+            <h2 id="formTitle">Create New Level</h2>
+
+            <div class="form-group">
+                <label for="levelName">Level Name</label>
+                <input type="text" id="levelName" placeholder="e.g., Pirates Theme">
+            </div>
+
+            <div class="form-group">
+                <label>Bubble Images (1-10 images)</label>
+                <div class="hint">Upload PNG or JPG images for each bubble type.</div>
+                <div class="bubble-images-container" id="bubbleImagesContainer">
+                    <!-- Dynamic bubble image inputs -->
+                </div>
+                <button type="button" class="add-bubble-btn" id="addBubbleBtn" onclick="addBubbleImage()">+ Add Bubble Image</button>
+            </div>
+
+            <div class="form-group">
+                <label>Background Image (optional)</label>
+                <div class="optional-image-row">
+                    <img id="backgroundPreview" class="image-preview empty" src="" alt="">
+                    <div class="file-upload-wrapper">
+                        <label class="file-upload-btn">
+                            Choose File
+                            <input type="file" id="backgroundFile" accept="image/*" onchange="handleOptionalImage('background', this)">
+                        </label>
+                        <span id="backgroundFileName" class="file-name">No file chosen</span>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="clearOptionalImage('background')" title="Remove">&times;</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Arrow Pointer Image (optional)</label>
+                <div class="optional-image-row">
+                    <img id="arrowPreview" class="image-preview empty" src="" alt="">
+                    <div class="file-upload-wrapper">
+                        <label class="file-upload-btn">
+                            Choose File
+                            <input type="file" id="arrowFile" accept="image/*" onchange="handleOptionalImage('arrow', this)">
+                        </label>
+                        <span id="arrowFileName" class="file-name">No file chosen</span>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="clearOptionalImage('arrow')" title="Remove">&times;</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Shooter Background / Spinner Image (optional)</label>
+                <div class="optional-image-row">
+                    <img id="spinnerPreview" class="image-preview empty" src="" alt="">
+                    <div class="file-upload-wrapper">
+                        <label class="file-upload-btn">
+                            Choose File
+                            <input type="file" id="spinnerFile" accept="image/*" onchange="handleOptionalImage('spinner', this)">
+                        </label>
+                        <span id="spinnerFileName" class="file-name">No file chosen</span>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="clearOptionalImage('spinner')" title="Remove">&times;</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Grid Settings</label>
+                <div class="setting-row">
+                    <label for="columnsSlider">Columns:</label>
+                    <input type="range" id="columnsSlider" min="6" max="24" value="12">
+                    <span class="value" id="columnsValue">12</span>
+                </div>
+                <div class="preview-box">
+                    <h4>Calculated Values</h4>
+                    <div class="preview-stats">
+                        <div class="stat">
+                            <div class="stat-value" id="previewRadius">32</div>
+                            <div class="stat-label">Bubble Radius (px)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="previewRowHeight">55</div>
+                            <div class="stat-label">Row Height (px)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="previewLoseRow">9</div>
+                            <div class="stat-label">Danger Zone Row</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button class="clear-btn" onclick="clearForm()">Clear Form</button>
+                <button class="save-btn" id="saveBtn" onclick="saveLevel()">Save Level</button>
+                <button class="play-btn" id="playBtn" onclick="saveAndPlay()">Save & Play</button>
+            </div>
+
+            <div class="message" id="message"></div>
+        </div>
+
+        <div class="levels-section">
+            <h2>Your Custom Levels</h2>
+            <div id="levelsList">
+                <!-- Dynamic level list -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // IndexedDB Image Storage
+        // ============================================================================
+
+        const DB_NAME = 'BubbleShooterImages';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'images';
+        let db = null;
+
+        // Initialize IndexedDB
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains(STORE_NAME)) {
+                        database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        // Store an image in IndexedDB
+        function storeImage(id, blob) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put({ id, blob, timestamp: Date.now() });
+
+                request.onsuccess = () => resolve(id);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Get an image from IndexedDB
+        function getImage(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(id);
+
+                request.onsuccess = () => resolve(request.result?.blob || null);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Delete an image from IndexedDB
+        function deleteImage(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(id);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Delete all images for a level
+        async function deleteImagesForLevel(levelId) {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.openCursor();
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        if (cursor.value.id.startsWith(levelId + '_')) {
+                            cursor.delete();
+                        }
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================================================
+        // Form State
+        // ============================================================================
+
+        const CANVAS_WIDTH = 800;
+        const LOSE_LINE_Y = 540;
+        const CUSTOM_LEVELS_KEY = 'bubbleShooterCustomLevels';
+
+        let editingLevelId = null;
+        let bubbleImageCount = 0;
+        let bubbleImageData = []; // Array of { file: File, blob: Blob, previewUrl: string }
+        let optionalImages = {
+            background: null,
+            arrow: null,
+            spinner: null
+        };
+
+        // ============================================================================
+        // Calculations
+        // ============================================================================
+
+        function calculateRadius(cols) {
+            return Math.floor(CANVAS_WIDTH / (2 * cols + 1));
+        }
+
+        function calculateRowHeight(radius) {
+            return Math.round(radius * Math.sqrt(3));
+        }
+
+        function calculateLoseRow(radius) {
+            const rowHeight = calculateRowHeight(radius);
+            return Math.floor((LOSE_LINE_Y - radius) / rowHeight);
+        }
+
+        function updatePreview() {
+            const cols = parseInt(document.getElementById('columnsSlider').value);
+            const radius = calculateRadius(cols);
+            const rowHeight = calculateRowHeight(radius);
+            const loseRow = calculateLoseRow(radius);
+
+            document.getElementById('columnsValue').textContent = cols;
+            document.getElementById('previewRadius').textContent = radius;
+            document.getElementById('previewRowHeight').textContent = rowHeight;
+            document.getElementById('previewLoseRow').textContent = loseRow;
+        }
+
+        // ============================================================================
+        // Bubble Image Management
+        // ============================================================================
+
+        function addBubbleImage() {
+            if (bubbleImageCount >= 10) return;
+
+            const index = bubbleImageCount;
+            bubbleImageCount++;
+            bubbleImageData[index] = null;
+
+            const container = document.getElementById('bubbleImagesContainer');
+
+            const row = document.createElement('div');
+            row.className = 'bubble-image-row';
+            row.dataset.index = index;
+            row.innerHTML = `
+                <span class="bubble-num">${bubbleImageCount}</span>
+                <img class="image-preview empty" id="bubblePreview${index}" src="" alt="">
+                <div class="file-upload-wrapper">
+                    <label class="file-upload-btn">
+                        Choose Image
+                        <input type="file" accept="image/*" onchange="handleBubbleImage(${index}, this)">
+                    </label>
+                    <span class="file-name" id="bubbleName${index}">No file chosen</span>
+                </div>
+                <button type="button" class="remove-btn" onclick="removeBubbleImage(${index})">&times;</button>
+            `;
+            container.appendChild(row);
+
+            updateAddButtonState();
+        }
+
+        function handleBubbleImage(index, input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById(`bubblePreview${index}`);
+                preview.src = e.target.result;
+                preview.classList.remove('empty');
+
+                const nameSpan = document.getElementById(`bubbleName${index}`);
+                nameSpan.textContent = file.name;
+                nameSpan.classList.add('has-file');
+
+                // Store the blob
+                bubbleImageData[index] = {
+                    file: file,
+                    previewUrl: e.target.result
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeBubbleImage(index) {
+            if (bubbleImageCount <= 1) return;
+
+            const row = document.querySelector(`.bubble-image-row[data-index="${index}"]`);
+            if (row) row.remove();
+
+            bubbleImageData[index] = null;
+
+            // Compact arrays and renumber
+            const rows = document.querySelectorAll('.bubble-image-row');
+            bubbleImageCount = rows.length;
+
+            const newBubbleData = [];
+            rows.forEach((row, newIndex) => {
+                const oldIndex = parseInt(row.dataset.index);
+                newBubbleData[newIndex] = bubbleImageData[oldIndex];
+                row.dataset.index = newIndex;
+                row.querySelector('.bubble-num').textContent = newIndex + 1;
+
+                // Update IDs and onchange handlers
+                const preview = row.querySelector('.image-preview');
+                const nameSpan = row.querySelector('.file-name');
+                const fileInput = row.querySelector('input[type="file"]');
+                const removeBtn = row.querySelector('.remove-btn');
+
+                preview.id = `bubblePreview${newIndex}`;
+                nameSpan.id = `bubbleName${newIndex}`;
+                fileInput.setAttribute('onchange', `handleBubbleImage(${newIndex}, this)`);
+                removeBtn.setAttribute('onclick', `removeBubbleImage(${newIndex})`);
+            });
+            bubbleImageData = newBubbleData;
+
+            updateAddButtonState();
+        }
+
+        function updateAddButtonState() {
+            const btn = document.getElementById('addBubbleBtn');
+            btn.disabled = bubbleImageCount >= 10;
+            btn.textContent = bubbleImageCount >= 10 ? 'Maximum 10 Bubbles' : '+ Add Bubble Image';
+        }
+
+        // ============================================================================
+        // Optional Image Management
+        // ============================================================================
+
+        function handleOptionalImage(type, input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById(`${type}Preview`);
+                preview.src = e.target.result;
+                preview.classList.remove('empty');
+
+                const nameSpan = document.getElementById(`${type}FileName`);
+                nameSpan.textContent = file.name;
+                nameSpan.classList.add('has-file');
+
+                optionalImages[type] = {
+                    file: file,
+                    previewUrl: e.target.result
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearOptionalImage(type) {
+            const preview = document.getElementById(`${type}Preview`);
+            preview.src = '';
+            preview.classList.add('empty');
+
+            const nameSpan = document.getElementById(`${type}FileName`);
+            nameSpan.textContent = 'No file chosen';
+            nameSpan.classList.remove('has-file');
+
+            const fileInput = document.getElementById(`${type}File`);
+            fileInput.value = '';
+
+            optionalImages[type] = null;
+        }
+
+        // ============================================================================
+        // Level Management
+        // ============================================================================
+
+        function loadCustomLevels() {
+            const saved = localStorage.getItem(CUSTOM_LEVELS_KEY);
+            return saved ? JSON.parse(saved) : [];
+        }
+
+        function saveCustomLevels(levels) {
+            localStorage.setItem(CUSTOM_LEVELS_KEY, JSON.stringify(levels));
+        }
+
+        async function renderLevelsList() {
+            const levels = loadCustomLevels();
+            const container = document.getElementById('levelsList');
+
+            if (levels.length === 0) {
+                container.innerHTML = '<div class="no-levels">No custom levels yet. Create one above!</div>';
+                return;
+            }
+
+            // Build HTML with image previews
+            let html = '';
+            for (let i = 0; i < levels.length; i++) {
+                const level = levels[i];
+                let previewsHtml = '';
+
+                // Try to get first few bubble previews
+                for (let j = 0; j < Math.min(3, level.bubbleCount); j++) {
+                    try {
+                        const blob = await getImage(`${level.id}_bubble_${j}`);
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            previewsHtml += `<img src="${url}" alt="Bubble ${j+1}">`;
+                        }
+                    } catch (e) {
+                        // Image not found, skip
+                    }
+                }
+
+                html += `
+                    <div class="level-item" data-id="${level.id}">
+                        <div class="level-info">
+                            <div class="level-previews">${previewsHtml || '<span style="color:#7f8c8d">No previews</span>'}</div>
+                            <div class="level-text">
+                                <div class="level-name">Level ${i + 4}: ${level.name}</div>
+                                <div class="level-details">
+                                    ${level.bubbleCount} bubbles | ${level.columns} columns
+                                    ${level.hasBackground ? ' | Background' : ''}
+                                    ${level.hasArrow ? ' | Arrow' : ''}
+                                    ${level.hasSpinner ? ' | Spinner' : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="level-actions">
+                            <button class="edit-btn" onclick="editLevel('${level.id}')">Edit</button>
+                            <button class="delete-btn" onclick="deleteLevel('${level.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function clearForm() {
+            editingLevelId = null;
+            document.getElementById('formTitle').textContent = 'Create New Level';
+            document.getElementById('levelName').value = '';
+            document.getElementById('columnsSlider').value = 12;
+
+            // Clear bubble images
+            document.getElementById('bubbleImagesContainer').innerHTML = '';
+            bubbleImageCount = 0;
+            bubbleImageData = [];
+            addBubbleImage();
+            addBubbleImage();
+            addBubbleImage();
+
+            // Clear optional images
+            clearOptionalImage('background');
+            clearOptionalImage('arrow');
+            clearOptionalImage('spinner');
+
+            updatePreview();
+            hideMessage();
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    msg.className = 'message';
+                }, 3000);
+            }
+        }
+
+        function hideMessage() {
+            document.getElementById('message').className = 'message';
+        }
+
+        function validateForm() {
+            const name = document.getElementById('levelName').value.trim();
+
+            if (!name) {
+                showMessage('Please enter a level name.', 'error');
+                return false;
+            }
+
+            // Check for at least one bubble image
+            const hasBubbles = bubbleImageData.some(b => b !== null);
+            if (!hasBubbles) {
+                showMessage('Please upload at least one bubble image.', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        async function saveLevel() {
+            if (!validateForm()) return null;
+
+            const saveBtn = document.getElementById('saveBtn');
+            const playBtn = document.getElementById('playBtn');
+            saveBtn.disabled = true;
+            playBtn.disabled = true;
+            showMessage('Saving level...', 'info');
+
+            try {
+                const levelId = editingLevelId || 'custom_' + Date.now();
+                const cols = parseInt(document.getElementById('columnsSlider').value);
+
+                // If editing, delete old images first
+                if (editingLevelId) {
+                    await deleteImagesForLevel(editingLevelId);
+                }
+
+                // Save bubble images to IndexedDB
+                let bubbleCount = 0;
+                for (let i = 0; i < bubbleImageData.length; i++) {
+                    if (bubbleImageData[i]) {
+                        const response = await fetch(bubbleImageData[i].previewUrl);
+                        const blob = await response.blob();
+                        await storeImage(`${levelId}_bubble_${bubbleCount}`, blob);
+                        bubbleCount++;
+                    }
+                }
+
+                // Save optional images
+                let hasBackground = false;
+                let hasArrow = false;
+                let hasSpinner = false;
+
+                if (optionalImages.background) {
+                    const response = await fetch(optionalImages.background.previewUrl);
+                    const blob = await response.blob();
+                    await storeImage(`${levelId}_background`, blob);
+                    hasBackground = true;
+                }
+
+                if (optionalImages.arrow) {
+                    const response = await fetch(optionalImages.arrow.previewUrl);
+                    const blob = await response.blob();
+                    await storeImage(`${levelId}_arrow`, blob);
+                    hasArrow = true;
+                }
+
+                if (optionalImages.spinner) {
+                    const response = await fetch(optionalImages.spinner.previewUrl);
+                    const blob = await response.blob();
+                    await storeImage(`${levelId}_spinner`, blob);
+                    hasSpinner = true;
+                }
+
+                // Save level metadata
+                const levels = loadCustomLevels();
+                const levelData = {
+                    id: levelId,
+                    name: document.getElementById('levelName').value.trim(),
+                    bubbleCount: bubbleCount,
+                    columns: cols,
+                    hasBackground,
+                    hasArrow,
+                    hasSpinner
+                };
+
+                if (editingLevelId) {
+                    const index = levels.findIndex(l => l.id === editingLevelId);
+                    if (index !== -1) {
+                        levels[index] = levelData;
+                    }
+                } else {
+                    levels.push(levelData);
+                }
+
+                saveCustomLevels(levels);
+                await renderLevelsList();
+
+                showMessage(editingLevelId ? 'Level updated successfully!' : 'Level created successfully!', 'success');
+
+                if (!editingLevelId) {
+                    clearForm();
+                }
+
+                return levelData;
+            } catch (error) {
+                console.error('Error saving level:', error);
+                showMessage('Error saving level: ' + error.message, 'error');
+                return null;
+            } finally {
+                saveBtn.disabled = false;
+                playBtn.disabled = false;
+            }
+        }
+
+        async function saveAndPlay() {
+            const levelData = await saveLevel();
+            if (levelData) {
+                sessionStorage.setItem('playCustomLevel', levelData.id);
+                window.location.href = 'index.html';
+            }
+        }
+
+        async function editLevel(levelId) {
+            const levels = loadCustomLevels();
+            const level = levels.find(l => l.id === levelId);
+
+            if (!level) return;
+
+            editingLevelId = levelId;
+            document.getElementById('formTitle').textContent = 'Edit Level: ' + level.name;
+            document.getElementById('levelName').value = level.name;
+            document.getElementById('columnsSlider').value = level.columns;
+
+            // Clear and load bubble images
+            document.getElementById('bubbleImagesContainer').innerHTML = '';
+            bubbleImageCount = 0;
+            bubbleImageData = [];
+
+            for (let i = 0; i < level.bubbleCount; i++) {
+                addBubbleImage();
+                try {
+                    const blob = await getImage(`${levelId}_bubble_${i}`);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const preview = document.getElementById(`bubblePreview${i}`);
+                        preview.src = url;
+                        preview.classList.remove('empty');
+
+                        const nameSpan = document.getElementById(`bubbleName${i}`);
+                        nameSpan.textContent = 'Loaded from storage';
+                        nameSpan.classList.add('has-file');
+
+                        bubbleImageData[i] = {
+                            previewUrl: url
+                        };
+                    }
+                } catch (e) {
+                    console.warn('Could not load bubble image:', e);
+                }
+            }
+
+            // Load optional images
+            clearOptionalImage('background');
+            clearOptionalImage('arrow');
+            clearOptionalImage('spinner');
+
+            if (level.hasBackground) {
+                try {
+                    const blob = await getImage(`${levelId}_background`);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const preview = document.getElementById('backgroundPreview');
+                        preview.src = url;
+                        preview.classList.remove('empty');
+                        document.getElementById('backgroundFileName').textContent = 'Loaded from storage';
+                        document.getElementById('backgroundFileName').classList.add('has-file');
+                        optionalImages.background = { previewUrl: url };
+                    }
+                } catch (e) {}
+            }
+
+            if (level.hasArrow) {
+                try {
+                    const blob = await getImage(`${levelId}_arrow`);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const preview = document.getElementById('arrowPreview');
+                        preview.src = url;
+                        preview.classList.remove('empty');
+                        document.getElementById('arrowFileName').textContent = 'Loaded from storage';
+                        document.getElementById('arrowFileName').classList.add('has-file');
+                        optionalImages.arrow = { previewUrl: url };
+                    }
+                } catch (e) {}
+            }
+
+            if (level.hasSpinner) {
+                try {
+                    const blob = await getImage(`${levelId}_spinner`);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const preview = document.getElementById('spinnerPreview');
+                        preview.src = url;
+                        preview.classList.remove('empty');
+                        document.getElementById('spinnerFileName').textContent = 'Loaded from storage';
+                        document.getElementById('spinnerFileName').classList.add('has-file');
+                        optionalImages.spinner = { previewUrl: url };
+                    }
+                } catch (e) {}
+            }
+
+            updatePreview();
+            document.querySelector('.creator-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function deleteLevel(levelId) {
+            if (!confirm('Are you sure you want to delete this level? This will also delete all uploaded images.')) return;
+
+            // Delete images from IndexedDB
+            await deleteImagesForLevel(levelId);
+
+            // Remove from levels list
+            let levels = loadCustomLevels();
+            levels = levels.filter(l => l.id !== levelId);
+            saveCustomLevels(levels);
+            await renderLevelsList();
+
+            if (editingLevelId === levelId) {
+                clearForm();
+            }
+
+            showMessage('Level deleted.', 'success');
+        }
+
+        // ============================================================================
+        // Initialization
+        // ============================================================================
+
+        async function init() {
+            try {
+                await initDB();
+
+                document.getElementById('columnsSlider').addEventListener('input', updatePreview);
+
+                addBubbleImage();
+                addBubbleImage();
+                addBubbleImage();
+
+                updatePreview();
+                await renderLevelsList();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showMessage('Error initializing database: ' + error.message, 'error');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
