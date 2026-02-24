@@ -145,10 +145,10 @@ const INITIAL_ROWS = 5; // Number of rows to fill at start
 // Background images (rotated each game)
 // Each entry: { src: filename, tile: whether to tile/repeat }
 const BACKGROUND_IMAGES = [
-    { src: 'cards.jpg', tile: false },
-    { src: 'fireworks.jpg', tile: false },
-    { src: 'hats.png', tile: true },
-    { src: 'items.jpg', tile: false }
+    { src: 'assets/classic/cards.jpg', tile: false },
+    { src: 'assets/classic/fireworks.jpg', tile: false },
+    { src: 'assets/classic/hats.png', tile: true },
+    { src: 'assets/classic/items.jpg', tile: false }
 ];
 const BACKGROUND_OPACITY = 0.25; // Transparency for background images (Level 1)
 const CURSE_BACKGROUND_OPACITY = 0.6; // Higher opacity for Level 2 curse background
@@ -176,6 +176,18 @@ const SPINNER_SIZE = 100; // Size of the spinner image
 // Custom aim arrow for Level 2 & 3
 let curseArrowImage = null;
 let curseArrowLoaded = false;
+
+// Next bubble frame image
+let curseNextImage = null;
+let curseNextLoaded = false;
+
+// Scoreboard image
+let curseScoreboardImage = null;
+let curseScoreboardLoaded = false;
+
+// Game over image
+let curseLoseImage = null;
+let curseLoseLoaded = false;
 
 // ============================================================================
 // CUSTOM LEVELS SUPPORT (with IndexedDB image storage)
@@ -337,7 +349,7 @@ function preloadCurseImages() {
     let loadedCount = 0;
     for (let i = 1; i <= NUM_COLORS; i++) {
         const img = new Image();
-        img.src = `curse${i}.png`;
+        img.src = `assets/curse/curse${i}.png`;
         img.onload = () => {
             loadedCount++;
             if (loadedCount === NUM_COLORS) {
@@ -354,7 +366,7 @@ function preloadCurseImages() {
     let loadedCountB = 0;
     for (let i = 1; i <= NUM_COLORS; i++) {
         const img = new Image();
-        img.src = `curse${i}-b.png`;
+        img.src = `assets/curse/curse${i}-b.png`;
         img.onload = () => {
             loadedCountB++;
             if (loadedCountB === NUM_COLORS) {
@@ -369,7 +381,7 @@ function preloadCurseImages() {
 
     // Preload curse background
     curseBackgroundImage = new Image();
-    curseBackgroundImage.src = 'curse-background.png';
+    curseBackgroundImage.src = 'assets/curse/curse-background.png';
     curseBackgroundImage.onload = () => {
         curseBackgroundLoaded = true;
     };
@@ -379,7 +391,7 @@ function preloadCurseImages() {
 
     // Preload spinner image
     curseSpinnerImage = new Image();
-    curseSpinnerImage.src = 'curse6-spinner.png';
+    curseSpinnerImage.src = 'assets/curse/curse6-spinner.png';
     curseSpinnerImage.onload = () => {
         curseSpinnerLoaded = true;
     };
@@ -389,12 +401,42 @@ function preloadCurseImages() {
 
     // Preload aim arrow image
     curseArrowImage = new Image();
-    curseArrowImage.src = 'curses-arrow.png';
+    curseArrowImage.src = 'assets/curse/curses-arrow.png';
     curseArrowImage.onload = () => {
         curseArrowLoaded = true;
     };
     curseArrowImage.onerror = () => {
         console.warn('Failed to load curses-arrow.png');
+    };
+
+    // Preload next bubble frame image
+    curseNextImage = new Image();
+    curseNextImage.src = 'assets/curse/curse-nextcurse.png';
+    curseNextImage.onload = () => {
+        curseNextLoaded = true;
+    };
+    curseNextImage.onerror = () => {
+        console.warn('Failed to load curse-nextcurse.png');
+    };
+
+    // Preload scoreboard image
+    curseScoreboardImage = new Image();
+    curseScoreboardImage.src = 'assets/curse/curse-scoreboard.png';
+    curseScoreboardImage.onload = () => {
+        curseScoreboardLoaded = true;
+    };
+    curseScoreboardImage.onerror = () => {
+        console.warn('Failed to load curse-scoreboard.png');
+    };
+
+    // Preload game over image
+    curseLoseImage = new Image();
+    curseLoseImage.src = 'assets/curse/curse-lose.png';
+    curseLoseImage.onload = () => {
+        curseLoseLoaded = true;
+    };
+    curseLoseImage.onerror = () => {
+        console.warn('Failed to load curse-lose.png');
     };
 }
 
@@ -1216,16 +1258,39 @@ function drawUI() {
     ctx.fillStyle = '#ecf0f1';
     ctx.font = '18px Arial';
 
-    // Score
-    ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${gameState.score}`, 20, 580);
+    // Score display - use scoreboard image for cursed levels
+    if ((currentLevel === 1 || currentLevel === 2) && curseScoreboardLoaded && curseScoreboardImage.complete) {
+        // Draw scoreboard image on RIGHT side at original size
+        const scoreboardWidth = curseScoreboardImage.naturalWidth;
+        const scoreboardHeight = curseScoreboardImage.naturalHeight;
+        const scoreboardX = CANVAS_WIDTH - scoreboardWidth;
+        const scoreboardY = CANVAS_HEIGHT - scoreboardHeight;
+        ctx.drawImage(curseScoreboardImage, scoreboardX, scoreboardY);
 
-    // Shots
-    ctx.fillText(`Shots: ${gameState.shots}`, 150, 580);
+        // Overlay score text on scoreboard
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${gameState.score}`, scoreboardX + scoreboardWidth / 2 + 15, scoreboardY + scoreboardHeight / 2 + 10);
+        ctx.fillStyle = '#ecf0f1';
+        ctx.font = '18px Arial';
 
-    // Shots until new row
-    const shotsLeft = SHOTS_BEFORE_NEW_ROW - gameState.shotsWithoutPop;
-    ctx.fillText(`Row in: ${shotsLeft}`, 280, 580);
+        // Shots - left of shooter (shooter is at x=400)
+        ctx.textAlign = 'right';
+        ctx.fillText(`Shots: ${gameState.shots}`, SHOOTER_X - 70, 580);
+
+        // Row in - right of spinner (spinner is at shooter position)
+        ctx.textAlign = 'left';
+        const shotsLeft = SHOTS_BEFORE_NEW_ROW - gameState.shotsWithoutPop;
+        ctx.fillText(`Row in: ${shotsLeft}`, SHOOTER_X + 70, 580);
+    } else {
+        // Default text display
+        ctx.textAlign = 'left';
+        ctx.fillText(`Score: ${gameState.score}`, 20, 580);
+        ctx.fillText(`Shots: ${gameState.shots}`, 150, 580);
+        const shotsLeft = SHOTS_BEFORE_NEW_ROW - gameState.shotsWithoutPop;
+        ctx.fillText(`Row in: ${shotsLeft}`, 280, 580);
+    }
 
     // Show bounce bonus while projectile is active
     if (gameState.projectile && gameState.projectile.bounceCount > 0) {
@@ -1236,14 +1301,26 @@ function drawUI() {
         ctx.fillStyle = '#ecf0f1';
     }
 
-    // Next bubble (adjust position for level)
+    // Next bubble display
     ctx.textAlign = 'right';
-    if (currentLevel === 1) {
-        // Cursed - large bubbles
+    if ((currentLevel === 1 || currentLevel === 2) && curseNextLoaded && curseNextImage.complete) {
+        // Draw curse next frame image on LEFT side at original size
+        const nextFrameWidth = curseNextImage.naturalWidth;
+        const nextFrameHeight = curseNextImage.naturalHeight;
+        const nextFrameX = 0;
+        const nextFrameY = CANVAS_HEIGHT - nextFrameHeight;
+        ctx.drawImage(curseNextImage, nextFrameX, nextFrameY);
+
+        // Draw next bubble in lower portion of the frame
+        const bubbleCenterX = nextFrameX + nextFrameWidth / 2 - 10;
+        const bubbleCenterY = nextFrameY + nextFrameHeight / 2 + 25;
+        drawBubble(bubbleCenterX, bubbleCenterY, gameState.nextBubble);
+    } else if (currentLevel === 1) {
+        // Fallback for Cursed - large bubbles
         ctx.fillText('Next:', 710, 580);
         drawBubble(760, 560, gameState.nextBubble);
     } else if (currentLevel === 2) {
-        // Cursed Alt - medium bubbles
+        // Fallback for Cursed Alt - medium bubbles
         ctx.fillText('Next:', 730, 580);
         drawBubble(768, 570, gameState.nextBubble);
     } else {
@@ -1299,20 +1376,52 @@ function drawGameOver() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Game over text
-    ctx.fillStyle = '#e74c3c';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+    // Use curse-lose.png for levels 1 and 2, otherwise show text
+    if ((currentLevel === 1 || currentLevel === 2) && curseLoseLoaded && curseLoseImage.complete) {
+        // Draw curse lose image centered, covering the game area
+        const imgWidth = curseLoseImage.naturalWidth;
+        const imgHeight = curseLoseImage.naturalHeight;
+        const imgX = (CANVAS_WIDTH - imgWidth) / 2;
+        const imgY = (CANVAS_HEIGHT - imgHeight) / 2 - 40;
 
-    // Final score
-    ctx.fillStyle = '#ecf0f1';
-    ctx.font = '24px Arial';
-    ctx.fillText(`Final Score: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        // Add a purple radial glow behind the image for visibility
+        const glowCenterX = CANVAS_WIDTH / 2;
+        const glowCenterY = imgY + imgHeight / 2;
+        const glowRadius = Math.max(imgWidth, imgHeight) * 0.8;
+        const glow = ctx.createRadialGradient(glowCenterX, glowCenterY, 0, glowCenterX, glowCenterY, glowRadius);
+        glow.addColorStop(0, 'rgba(138, 43, 226, 0.5)');
+        glow.addColorStop(0.5, 'rgba(75, 0, 130, 0.3)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Restart instruction
-    ctx.font = '18px Arial';
-    ctx.fillText('Press R to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+        ctx.drawImage(curseLoseImage, imgX, imgY);
+
+        // Final score below the image
+        ctx.fillStyle = '#ecf0f1';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Final Score: ${gameState.score}`, CANVAS_WIDTH / 2, imgY + imgHeight + 30);
+
+        // Restart instruction
+        ctx.font = '18px Arial';
+        ctx.fillText('Press R to restart', CANVAS_WIDTH / 2, imgY + imgHeight + 60);
+    } else {
+        // Default Game over text
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+
+        // Final score
+        ctx.fillStyle = '#ecf0f1';
+        ctx.font = '24px Arial';
+        ctx.fillText(`Final Score: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+
+        // Restart instruction
+        ctx.font = '18px Arial';
+        ctx.fillText('Press R to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+    }
 }
 
 /**
